@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "leakage_target_usd": 50000,
+  "total_contracts": 1000,
+  "total_plays": 100000,
+  "total_payments": 10000,
+  "territories": ["US", "CA", "UK", "IN", "DE", "JP", "BR", "AU", "FR"],
+  "studios": ["Apex Studios", "NovaPic", "StellarSound", "GridMedia", "NeonFilms"],
+  "content_distribution": {
+    "Movie": 500,
+    "Show": 300,
+    "Music": 200
+  },
+  "violation_rates": {
+    "underpayment": 0.05,
+    "overpayment": 0.03,
+    "expired_license": 0.02,
+    "territory_violation": 0.02
+  }
+}
