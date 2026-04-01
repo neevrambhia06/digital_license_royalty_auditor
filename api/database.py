@@ -3,8 +3,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from .models import Base
 
-# Local SQLite Database Path
-DB_PATH = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
+# Database Configuration
+IS_VERCEL = "VERCEL" in os.environ
+
+if IS_VERCEL:
+    # On Vercel, the filesystem is read-only except for /tmp
+    DB_PATH = "/tmp/dlra_audit.db"
+else:
+    # Local SQLite Database Path
+    DB_PATH = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
+
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 # Create Engine and Session

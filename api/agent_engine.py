@@ -357,8 +357,18 @@ class AuditOrchestrator:
         }
 
     def _export_csv_outputs(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-        os.makedirs(data_dir, exist_ok=True)
+        from .database import IS_VERCEL
+        if IS_VERCEL:
+            data_dir = "/tmp/data"
+        else:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+            
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+        except OSError as e:
+            # If we fail to create the directory, we just log and skip the export
+            print(f"[!] Warning: Could not create data directory {data_dir}: {e}")
+            return
 
         audit_rows = self.db.query(AuditResult).all()
         audit_path = os.path.join(data_dir, "audit_results.csv")

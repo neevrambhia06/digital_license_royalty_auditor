@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
+import shutil
 
 from .database import get_db, init_db
 from .models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
@@ -21,6 +22,17 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_event():
+    # Ensure database is in a writable location on Vercel
+    from .database import IS_VERCEL, DB_PATH
+    if IS_VERCEL:
+        original_db = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
+        # Check if we need to copy initial data to /tmp
+        if os.path.exists(original_db) and not os.path.exists(DB_PATH):
+            print(f"[*] Vercel detected: Copying bundled DB to {DB_PATH}")
+            shutil.copy2(original_db, DB_PATH)
+        elif not os.path.exists(original_db):
+            print("[!] Warning: Bundled database not found in api/dlra_audit.db")
+
     # Ensure tables exist on startup
     init_db()
 
