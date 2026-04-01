@@ -119,13 +119,7 @@ export default function AuditResults() {
     <motion.div variants={stagger} initial="hidden" animate="show">
       {/* Header */}
       <motion.div variants={fadeUp} style={{ marginBottom: '32px' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-heading)',
-          fontSize: '28px',
-          fontWeight: 800,
-          color: 'var(--text-primary)',
-          marginBottom: '6px'
-        }}>
+        <h1 className="page-title">
           Audit Results
         </h1>
         <p style={{

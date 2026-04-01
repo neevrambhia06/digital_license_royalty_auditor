@@ -1,17 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+
+interface User {
+  id: string;
+  email: string;
+}
 
 interface AuthState {
   user: User | null;
-  session: Session | null;
   loading: boolean;
+  loginAsGuest: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
   user: null,
-  session: null,
-  loading: true
+  loading: true,
+  loginAsGuest: () => {},
+  logout: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -19,45 +24,61 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
-    session: null,
-    loading: true
+    loading: true,
+    loginAsGuest: () => {},
+    logout: async () => {}
   });
 
   useEffect(() => {
     let mounted = true;
 
     async function initializeAuth() {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
+      // Check for guest session first
+      const isGuest = sessionStorage.getItem('dlra_guest_mode') === 'true';
       if (mounted) {
-        setState({
-          user: session?.user || null,
-          session,
-          loading: false
-        });
+        if (isGuest) {
+          setState(prev => ({
+            ...prev,
+            user: { email: 'guest@auditor.internal', id: 'guest-uuid' },
+            loading: false
+          }));
+        } else {
+          setState(prev => ({
+            ...prev,
+            loading: false
+          }));
+        }
       }
     }
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setState({
-          user: session?.user || null,
-          session,
-          loading: false
-        });
-      }
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, []);
 
+  const loginAsGuest = () => {
+    sessionStorage.setItem('dlra_guest_mode', 'true');
+    setState(prev => ({
+      ...prev,
+      user: { email: 'guest@auditor.internal', id: 'guest-uuid' },
+      loading: false
+    }));
+  };
+
+  const logout = async () => {
+    sessionStorage.removeItem('dlra_guest_mode');
+    setState({
+      user: null,
+      loading: false,
+      loginAsGuest,
+      logout
+    });
+  };
+
   return (
-    <AuthContext.Provider value={state}>
+    <AuthContext.Provider value={{ ...state, loginAsGuest, logout }}>
       {children}
     </AuthContext.Provider>
   );

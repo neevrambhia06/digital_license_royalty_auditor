@@ -1,124 +1,73 @@
 import React from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import Sidebar from './Sidebar';
-import { LogOut, User } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
-import PageTransition from './PageTransition';
+import { Outlet, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import TopBar from './TopBar';
+import ShortcutOverlay from './ShortcutOverlay';
+import toast from 'react-hot-toast';
+import confetti from 'canvas-confetti';
 
 export default function AppShell() {
-  const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
+  const [isRunning, setIsRunning] = React.useState(false);
+  const [isShortcutOpen, setIsShortcutOpen] = React.useState(false);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+  React.useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setIsShortcutOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, []);
+
+  const handleRunAudit = () => {
+    setIsRunning(true);
+    toast.loading('Initializing Agentic Audit Pipeline...', { id: 'audit' });
+    
+    // Simulate audit run
+    setTimeout(() => {
+      setIsRunning(false);
+      toast.success('Audit Complete: $52,340 Leakage Found', { id: 'audit' });
+      
+      // Celebration
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#06B6D4', '#22C55E', '#EF4444'], // Cyan, Green, Red
+        scalar: 0.8
+      });
+    }, 3000);
   };
 
-  // Generate breadcrumb from path
-  const pathParts = location.pathname.split('/').filter(Boolean);
-  const breadcrumb = pathParts.length > 0 
-    ? pathParts[pathParts.length - 1].charAt(0).toUpperCase() + pathParts[pathParts.length - 1].slice(1)
-    : 'Dashboard';
-
   return (
-    <div className="app-layout" style={{ display: 'flex', width: '100vw', height: '100vh', background: 'var(--bg-void)' }}>
-      <Sidebar />
+    <div className="app-shell" style={{ position: 'relative', width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
-      <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
-        {/* Top Header */}
-        <header className="app-header" style={{
-          height: '73px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 32px',
-          background: 'rgba(13, 17, 23, 0.95)',
-          backdropFilter: 'blur(12px)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50
-        }}>
-          {/* Breadcrumbs */}
-          <div className="app-header-items" style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '18px',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            letterSpacing: '0.02em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{ color: 'var(--accent-teal)' }}>/</span>
-            {breadcrumb.replace('-', ' ')}
-          </div>
+      {/* Centered Floating Navbar */}
+      <TopBar onRun={handleRunAudit} isRunning={isRunning} disabled={false} />
 
-          {/* User Menu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div className="hide-on-mobile" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 14px',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '20px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '12px',
-              color: 'var(--text-muted)'
-            }}>
-              <User size={14} color="var(--accent-teal)" />
-              {user?.email || 'auditor@system.local'}
-            </div>
-            
-            <button
-              onClick={handleSignOut}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'transparent',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
-              onMouseOut={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'transparent'; }}
-              title="Terminate Session"
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', paddingTop: '104px', paddingBottom: '48px', position: 'relative', zIndex: 5 }}>
+        <main className="main-content" style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '0 32px' }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
-              <LogOut size={14} />
-            </button>
-          </div>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="app-main-view" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '32px', position: 'relative' }}>
-          {/* Subtle grid background for the main area to maintain the aesthetic */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundSize: '40px 40px',
-            backgroundImage: 'linear-gradient(rgba(0, 217, 192, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 217, 192, 0.02) 1px, transparent 1px)',
-            pointerEvents: 'none',
-            zIndex: 0
-          }} />
-          <div style={{ position: 'relative', zIndex: 1, height: '100%' }}>
-            <AnimatePresence mode="popLayout">
-              <PageTransition key={location.pathname}>
-                <Outlet />
-              </PageTransition>
-            </AnimatePresence>
-          </div>
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
+
+      {/* Global Command Palette */}
+      <ShortcutOverlay isOpen={isShortcutOpen} onClose={() => setIsShortcutOpen(false)} />
     </div>
   );
 }
+
+

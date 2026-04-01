@@ -1,460 +1,211 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, AlertTriangle, Info, CheckCircle, ShieldAlert, Download, Terminal, X } from 'lucide-react';
-import Badge from '../components/ui/Badge';
-import { violationAgent, Violation } from '../agents/violationAgent';
-import { auditLogGenerator } from '../agents/auditLogGenerator';
-import { supabase } from '../lib/supabase';
-
-// Helper component for animating numbers if needed
-function StatCard({ label, value, color, icon: Icon }: { label: string, value: number, color: string, icon: any }) {
-  return (
-    <motion.div 
-      whileHover={{ scale: 1.02, borderColor: color }}
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        padding: '24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        transition: 'border-color 0.2s ease'
-      }}
-    >
-      <div style={{ padding: '16px', borderRadius: '50%', background: `color-mix(in srgb, ${color} 10%, transparent)` }}>
-        <Icon size={32} color={color} />
-      </div>
-      <div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '36px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
-          {value}
-        </div>
-        <div style={{ fontFamily: 'var(--font-heading)', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+import { Search, AlertTriangle, ShieldAlert, Clock, Info, ShieldX, Globe, Calendar, ArrowRight, Zap, ShieldCheck, Download } from 'lucide-react';
+import { auditService } from '../services/api';
+import { exportToCSV } from '../utils/exportUtils';
+import toast from 'react-hot-toast';
 
 export default function ViolationsPage() {
-  const [violations, setViolations] = useState<Violation[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedViolation, setSelectedViolation] = useState<Violation | null>(null);
-  
-  // Filters
-  const [activeSeverity, setActiveSeverity] = useState<string>('all');
-  const [activeType, setActiveType] = useState<string>('all');
-  
-  const endOfLogsRef = useRef<HTMLDivElement>(null);
+  const [rows, setRows] = useState<any[]>([]);
+  const [type, setType] = useState('all');
+  const [severity, setSeverity] = useState('all');
+  const [q, setQ] = useState('');
 
-  const fetchLogs = async (runId: string) => {
-    const traceLogs = await auditLogGenerator.getFullLog(runId);
-    setLogs(traceLogs);
-  };
-
-  const executeChecks = async () => {
-    setIsLoading(true);
-    try {
-      // The violation agent generates a new run_id inherently or passes one through the traces.
-      // We will generate a runId for this cycle
-      const runId = Math.random().toString(36).substring(2, 10);
-      
-      const results = await violationAgent.checkAllViolations(runId);
-      
-      // Let's refetch from DB so we get everything, not just what this run detected (or maybe just what we have)
-      const { data } = await supabase.from('violations').select('*').order('detected_at', { ascending: false });
-      setViolations(data || results);
-      
-      await fetchLogs(runId);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initial fetch from DB
-  useEffect(() => {
-    const loadInit = async () => {
-      const { data } = await supabase.from('violations').select('*').order('detected_at', { ascending: false });
-      setViolations(data || []);
-      
-      // Load latest active traces if any
-      const { data: latestTrace } = await supabase.from('agent_traces').select('run_id').order('timestamp', { ascending: false }).limit(1);
-      if (latestTrace && latestTrace[0]) {
-        await fetchLogs(latestTrace[0].run_id);
-      }
-      setIsLoading(false);
-    };
-    loadInit();
+  useEffect(() => { 
+    auditService.getViolations(2000).then((d) => setRows(d || [])); 
   }, []);
 
-  useEffect(() => {
-    endOfLogsRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  const types = useMemo(() => Array.from(new Set(rows.map((r) => r.violation_type))), [rows]);
 
-  const handleExport = async () => {
-    if (logs.length === 0) return;
-    const runId = logs[0].run_id;
-    const csvStr = await auditLogGenerator.exportLog(runId);
-    
-    const blob = new Blob([csvStr], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit_trace_${runId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const filtered = useMemo(() => rows.filter((r: any) =>
+    (type === 'all' || r.violation_type === type) &&
+    (severity === 'all' || r.severity === severity) &&
+    `${r.content_id} ${r.contract_id} ${r.description}`.toLowerCase().includes(q.toLowerCase())
+  ), [rows, type, severity, q]);
+
+  const stats = useMemo(() => ({
+    territory: rows.filter((r) => String(r.violation_type).includes('TERRITORY')).length,
+    expired: rows.filter((r) => String(r.violation_type).includes('EXPIRED')).length,
+    under: rows.filter((r) => String(r.violation_type).includes('UNDERPAYMENT')).length,
+    missing: rows.filter((r) => String(r.violation_type).includes('MISSING')).length
+  }), [rows]);
+
+  const handleExport = () => {
+    exportToCSV(filtered, `DLRA_Violations_Export_${new Date().toISOString().slice(0, 10)}`);
+    toast.success('Violations exported successfully');
   };
-
-  const handleMarkReviewed = async (v_id: string) => {
-    const timestamp = new Date().toISOString();
-    await supabase.from('violations').update({ reviewed_at: timestamp }).eq('violation_id', v_id);
-    setViolations(prev => prev.map(v => v.violation_id === v_id ? { ...v, reviewed_at: timestamp } : v));
-    setSelectedViolation(null);
-  };
-
-  useEffect(() => {
-    const onGlobalExport = () => handleExport();
-    window.addEventListener('export:csv', onGlobalExport);
-    return () => window.removeEventListener('export:csv', onGlobalExport);
-  }, [logs]);
-
-  const filtered = violations.filter(v => {
-    if (activeSeverity !== 'all' && v.severity !== activeSeverity) return false;
-    if (activeType !== 'all' && v.violation_type !== activeType) return false;
-    return true;
-  });
-
-  const getSeverityColor = (sev: string) => {
-    switch(sev) {
-      case 'critical': return 'var(--danger)';
-      case 'high': return '#F97316'; // Orange
-      case 'medium': return 'var(--accent-amber)';
-      default: return 'var(--success)';
-    }
-  };
-
-  const stats = {
-    critical: violations.filter(v => v.severity === 'critical' && !v.reviewed_at).length,
-    high: violations.filter(v => v.severity === 'high' && !v.reviewed_at).length,
-    medium: violations.filter(v => v.severity === 'medium' && !v.reviewed_at).length,
-    low: violations.filter(v => v.severity === 'low' && !v.reviewed_at).length,
-  };
-
-  const uniqueTypes = Array.from(new Set(violations.map(v => v.violation_type)));
 
   return (
-    <div style={{ padding: '40px', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-            Violations & Compliance
-          </h1>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            {violations.filter(v => !v.reviewed_at).length} active issues require review
-          </p>
+    <div className="page-container">
+      <header className="page-header">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <h1 className="page-title">Compliance & Breach Intelligence</h1>
+            <p className="page-subtitle">Automated detection of licensing violations and royalty leakage.</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <ShieldAlert size={16} className="text-crimson" />
+            <span className="mono" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>BREACH_DETECTION_ACTIVE</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={executeChecks}
-            disabled={isLoading}
-            style={{
-              padding: '10px 20px',
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: 'var(--bg-base)',
-              background: 'var(--accent-teal)',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              cursor: isLoading ? 'wait' : 'pointer',
-              opacity: isLoading ? 0.7 : 1,
-              boxShadow: '0 0 15px rgba(0, 217, 192, 0.2)'
-            }}
-          >
-            {isLoading ? 'Scanning...' : 'Run New Scan'}
-          </button>
+        <hr className="page-rule" />
+      </header>
+
+      {/* Violation Stats */}
+      <div className="metric-grid">
+        <div className="metric-card">
+          <div className="metric-label">
+            <Globe size={12} className="text-cyan" style={{ marginRight: '8px' }} /> Territory Breach
+          </div>
+          <div className="metric-value text-cyan" style={{ fontSize: '32px' }}>{stats.territory}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Unlicensed regional playback</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">
+            <Calendar size={12} className="text-gold" style={{ marginRight: '8px' }} /> Term Expiration
+          </div>
+          <div className="metric-value text-gold" style={{ fontSize: '32px' }}>{stats.expired}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Active play on dead license</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">
+            <ShieldX size={12} className="text-crimson" style={{ marginRight: '8px' }} /> Underpaid Balance
+          </div>
+          <div className="metric-value text-crimson" style={{ fontSize: '32px' }}>{stats.under}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Confirmed financial leakage</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">
+            <Zap size={12} className="text-lime" style={{ marginRight: '8px' }} /> Missing Settlement
+          </div>
+          <div className="metric-value text-lime" style={{ fontSize: '32px' }}>{stats.missing}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Unreconciled zero-value logs</div>
         </div>
       </div>
 
-      {/* STATS ROW */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <StatCard label="Critical" value={stats.critical} color="var(--danger)" icon={ShieldAlert} />
-        <StatCard label="High" value={stats.high} color="#F97316" icon={AlertCircle} />
-        <StatCard label="Medium" value={stats.medium} color="var(--accent-amber)" icon={AlertTriangle} />
-        <StatCard label="Low" value={stats.low} color="var(--success)" icon={Info} />
-      </div>
-
-      {/* FILTER BAR */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', padding: '16px', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>SEVERITY</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {['all', 'critical', 'high', 'medium', 'low'].map(sev => (
-            <button
-              key={sev}
-              onClick={() => setActiveSeverity(sev)}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '50px',
-                background: activeSeverity === sev ? 'var(--text-primary)' : 'transparent',
-                color: activeSeverity === sev ? 'var(--bg-base)' : 'var(--text-secondary)',
-                border: `1px solid ${activeSeverity === sev ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '12px',
-                textTransform: 'uppercase'
-              }}
-            >
-              {sev}
+      {/* Toolbar */}
+      <div className="toolbar">
+        <div className="pill-row">
+          <button className={`pill ${type === 'all' ? 'active' : ''}`} onClick={() => setType('all')}>ALL BREACHES</button>
+          {types.slice(0, 5).map((t) => (
+            <button key={t} className={`pill ${type === t ? 'active' : ''}`} onClick={() => setType(t)}>
+              {String(t).replace('_', ' ')}
             </button>
           ))}
         </div>
         
-        <div style={{ width: '1px', height: '24px', background: 'var(--border-subtle)', margin: '0 10px' }} />
-        
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>TYPE</div>
-        <select 
-          value={activeType} 
-          onChange={(e) => setActiveType(e.target.value)}
-          style={{
-            background: 'var(--bg-base)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-subtle)',
-            padding: '6px 12px',
-            borderRadius: '4px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '13px',
-            outline: 'none'
-          }}
-        >
-          <option value="all">ALL TYPES</option>
-          {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        
-        <div style={{ flex: 1 }} />
-        
-        <button
-          onClick={handleExport}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '12px'
-          }}
-        >
-          <Download size={14} /> EXPORT CSV
-        </button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <select className="control-select" value={severity} onChange={(e) => setSeverity(e.target.value)}>
+            <option value="all">ANY SEVERITY</option>
+            {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((s) => (
+              <option key={s} value={s.toLowerCase()}>{s}</option>
+            ))}
+          </select>
+          <div style={{ position: 'relative', width: '240px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+            <input 
+              className="control-input" 
+              placeholder="Filter by description..." 
+              value={q} 
+              onChange={(e) => setQ(e.target.value)} 
+              style={{ paddingLeft: '36px', width: '100%' }}
+            />
+          </div>
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+            <Download size={14} /> EXPORT FINDINGS
+          </button>
+        </div>
       </div>
 
-      {/* VIOLATION FEED */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+      {/* Grid of Intel Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '20px' }}>
         <AnimatePresence>
           {filtered.map((v, i) => (
-            <motion.div
-              key={v.violation_id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ delay: i * 0.03, duration: 0.2 }}
-              whileHover={{ scale: 1.005, borderColor: 'var(--border-glow)' }}
-              onClick={() => setSelectedViolation(v)}
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                opacity: v.reviewed_at ? 0.6 : 1
+            <motion.div 
+              key={v.violation_id} 
+              className="panel" 
+              layout
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ delay: Math.min(i * 0.05, 0.4) }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--gold-mid)'}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-surface)'}
+              style={{ 
+                border: '1px solid var(--border-surface)',
+                background: 'var(--bg-raised)',
+                padding: '24px',
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              <div style={{ width: '6px', background: getSeverityColor(v.severity) }} />
-              <div style={{ padding: '20px', width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <Badge type={v.violation_type.toLowerCase()}>{v.violation_type}</Badge>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-primary)' }}>{v.content_id}</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>{v.contract_id}</span>
-                  </div>
-                  {v.reviewed_at && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
-                      <CheckCircle size={12} /> REVIEWED
-                    </span>
-                  )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span className={`badge ${String(v.violation_type || '').toLowerCase()}`} style={{ fontSize: '10px', padding: '4px 10px' }}>
+                  {v.violation_type}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {v.severity === 'critical' && <AlertTriangle size={14} className="text-crimson" />}
+                  <span className={`badge ${String(v.severity || '').toLowerCase()}-severity`} style={{ 
+                    fontSize: '9px', 
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {v.severity?.toUpperCase()}
+                  </span>
                 </div>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span className="mono" style={{ fontSize: '14px', color: 'var(--gold-bright)', fontWeight: 600 }}>{v.content_id}</span>
+                  <ArrowRight size={12} color="var(--text-tertiary)" />
+                  <span className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{v.contract_id}</span>
+                </div>
+                <p style={{ 
+                  fontFamily: 'var(--font-heading-refined)', 
+                  fontSize: '15px', 
+                  lineHeight: '1.6', 
+                  color: 'var(--text-secondary)',
+                  margin: 0
+                }}>
                   {v.description}
+                </p>
+              </div>
+
+              <div style={{ borderTop: '1px dotted var(--border-subtle)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-tertiary)' }}>
+                  <Clock size={12} />
+                  <span className="mono" style={{ fontSize: '11px' }}>
+                    {new Date(v.detected_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                  </span>
                 </div>
-                <div style={{ marginTop: '16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Detected: {new Date(v.detected_at).toLocaleString()} • Audit ID: {v.audit_id}
-                </div>
+                <button 
+                  className="btn-secondary" 
+                  style={{ fontSize: '10px', padding: '6px 12px', borderColor: 'var(--gold-dim)' }}
+                  onClick={() => toast.success(`Intelligence report for ${v.violation_id.slice(0, 8)} opened.`)}
+                >
+                  Inspect Incident
+                </button>
+              </div>
+
+              {/* Status Graphic */}
+              <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.03, pointerEvents: 'none' }}>
+                <ShieldAlert size={120} />
               </div>
             </motion.div>
           ))}
-          {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              No violations match the current filter criteria.
-            </div>
-          )}
         </AnimatePresence>
       </div>
 
-      {/* FULL AUDIT LOG - TERMINAL SECTION */}
-      <div style={{ 
-        marginTop: '32px', 
-        background: '#040608', // Even darker for terminal
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        overflow: 'hidden',
-      }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Terminal size={16} color="var(--text-muted)" />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>Audit Engine Trace Log</span>
+      {filtered.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
+          <ShieldCheck size={48} style={{ margin: '0 auto 16px', color: 'var(--lime-bright)' }} />
+          <p className="page-subtitle">No compliance breaches detected for the selected filters.</p>
         </div>
-        <div style={{
-          padding: '16px',
-          height: '250px',
-          overflowY: 'auto',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '12px',
-          lineHeight: 1.6
-        }}>
-          {logs.map((log, i) => (
-            <div key={log.trace_id} style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
-              <span style={{ color: 'var(--text-muted)', minWidth: '150px' }}>[{new Date(log.timestamp).toISOString().split('T')[1].slice(0, 8)}]</span>
-              <span style={{ color: 'var(--accent-purple)', minWidth: '130px' }}>{log.agent_name}</span>
-              <span style={{ color: 'var(--accent-teal)' }}>{log.action}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>→ {log.output_summary || log.input_summary}</span>
-              {log.duration_ms && <span style={{ color: 'var(--text-muted)' }}>[{log.duration_ms}ms]</span>}
-            </div>
-          ))}
-          <div ref={endOfLogsRef} style={{ animation: 'blink 1s step-end infinite', width: '8px', height: '14px', background: 'var(--text-muted)', marginTop: '8px' }} />
-        </div>
-      </div>
-
-      {/* VIOLATION DETAIL MODAL */}
-      <AnimatePresence>
-        {selectedViolation && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedViolation(null)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(8, 11, 15, 0.8)', zIndex: 99, backdropFilter: 'blur(4px)' }} 
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              style={{
-                position: 'fixed',
-                bottom: 0,
-                left: '10%',
-                right: '10%',
-                height: '70vh',
-                background: 'var(--bg-raised)',
-                border: '1px solid var(--border-subtle)',
-                borderBottom: 'none',
-                borderRadius: '24px 24px 0 0',
-                zIndex: 100,
-                padding: '40px',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 -20px 40px rgba(0,0,0,0.5)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
-                <div>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
-                    <Badge type={selectedViolation.violation_type.toLowerCase()}>{selectedViolation.violation_type}</Badge>
-                    <span style={{ color: getSeverityColor(selectedViolation.severity), fontFamily: 'var(--font-mono)', fontSize: '13px', textTransform: 'uppercase' }}>
-                      {selectedViolation.severity} SEVERITY
-                    </span>
-                  </div>
-                  <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                    {selectedViolation.description}
-                  </h2>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent-teal)' }}>
-                    ID: {selectedViolation.violation_id}
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setSelectedViolation(null)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginTop: 0 }}>Context Details</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Content</span><span>{selectedViolation.content_id}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Contract</span><span>{selectedViolation.contract_id}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Detected At</span><span>{new Date(selectedViolation.detected_at).toLocaleString()}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Audit Block</span><span>{selectedViolation.audit_id}</span></div>
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginTop: 0 }}>Recommended Action</h3>
-                  <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    {selectedViolation.violation_type === 'EXPIRED LICENSE' && "Immediately suspend distribution rights for this content until a renewed contract is finalized. Review historical payments post-expiry."}
-                    {selectedViolation.violation_type === 'TERRITORY VIOLATION' && "Investigate CDN logs for geofencing failures. Notify rights holders of the violation and calculate potential damages."}
-                    {selectedViolation.violation_type === 'WRONG_TIER' && "Trigger a ledger recalculation. Issue credits or debit notes on the subsequent payment cycle to reconcile the tier threshold variation."}
-                    {selectedViolation.violation_type === 'MISSING_LICENSE' && "Halt playback for this content ID globally. This presents a high legal liability risk for copyright infringement without terms."}
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '16px', borderTop: '1px solid var(--border-subtle)', paddingTop: '24px' }}>
-                <button
-                  onClick={() => setSelectedViolation(null)}
-                  style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-heading)' }}
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => handleMarkReviewed(selectedViolation.violation_id)}
-                  disabled={!!selectedViolation.reviewed_at}
-                  style={{ 
-                    padding: '12px 24px', 
-                    background: selectedViolation.reviewed_at ? 'var(--bg-base)' : 'var(--success)', 
-                    border: 'none', 
-                    color: selectedViolation.reviewed_at ? 'var(--text-muted)' : 'var(--bg-void)', 
-                    borderRadius: 'var(--radius-sm)', 
-                    cursor: selectedViolation.reviewed_at ? 'not-allowed' : 'pointer', 
-                    fontFamily: 'var(--font-heading)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <CheckCircle size={18} />
-                  {selectedViolation.reviewed_at ? 'Already Reviewed' : 'Mark as Reviewed'}
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      
-      <style>{`
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
-      `}</style>
+      )}
     </div>
   );
 }
+

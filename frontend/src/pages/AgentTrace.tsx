@@ -1,8 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
-import { Download, PlayCircle, Loader2, StopCircle, RefreshCw, XCircle } from 'lucide-react';
-import { auditOrchestrator } from '../agents/auditOrchestrator';
+import { auditService } from '../services/api';
+import toast from 'react-hot-toast';
+import { 
+  Download, PlayCircle, StopCircle, Cpu, Layers, Activity, 
+  Terminal as TerminalIcon, History, CheckCircle2, AlertCircle, 
+  ChevronRight, Database, Search, FileText, BarChart3, ShieldCheck
+} from 'lucide-react';
 
 type TraceLine = {
   id: string;
@@ -20,17 +24,34 @@ type RunHistory = {
   status: string;
 };
 
-// SVG Flow diagram nodes mapping
+// Node definitions
+const NODE_W = 160;
+const NODE_H = 54;
 const AGENT_NODES = [
-  { id: 'PlannerAgent', label: 'Planner Agent', x: 250, y: 50 },
-  { id: 'ContractReaderAgent', label: 'Contract Reader', x: 50, y: 150 },
-  { id: 'StreamingLogAgent', label: 'Usage Agent', x: 250, y: 150 },
-  { id: 'RoyaltyCalculatorAgent', label: 'Royalty Agent', x: 450, y: 150 },
-  { id: 'LedgerAgent', label: 'Ledger Agent', x: 450, y: 300 },
-  { id: 'AuditAgent', label: 'Audit Agent', x: 250, y: 300 },
-  { id: 'ViolationAgent', label: 'Violation Agent', x: 50, y: 300 },
-  { id: 'ReporterAgent', label: 'Reporter Agent', x: 250, y: 400 }
+  { id: 'PlannerAgent',          label: 'Planner Agent',   cx: 350, cy: 60, icon: <Cpu size={14} />  },
+  { id: 'ContractReaderAgent',   label: 'Contract Reader', cx: 130, cy: 180, icon: <FileText size={14} /> },
+  { id: 'StreamingLogAgent',     label: 'Usage Agent',     cx: 350, cy: 180, icon: <Database size={14} /> },
+  { id: 'RoyaltyCalculatorAgent',label: 'Royalty Agent',   cx: 570, cy: 180, icon: <BarChart3 size={14} /> },
+  { id: 'ViolationAgent',        label: 'Violation Agent', cx: 130, cy: 320, icon: <AlertCircle size={14} /> },
+  { id: 'AuditAgent',            label: 'Audit Agent',     cx: 350, cy: 320, icon: <Search size={14} /> },
+  { id: 'LedgerAgent',           label: 'Ledger Agent',    cx: 570, cy: 320, icon: <ShieldCheck size={14} /> },
+  { id: 'ReporterAgent',         label: 'Reporter Agent',  cx: 350, cy: 440, icon: <Activity size={14} /> },
 ];
+
+const EDGES = [
+  ['PlannerAgent', 'ContractReaderAgent'],
+  ['PlannerAgent', 'StreamingLogAgent'],
+  ['PlannerAgent', 'RoyaltyCalculatorAgent'],
+  ['RoyaltyCalculatorAgent', 'LedgerAgent'],
+  ['LedgerAgent', 'AuditAgent'],
+  ['AuditAgent', 'ViolationAgent'],
+  ['ViolationAgent', 'ReporterAgent'],
+  ['AuditAgent', 'ReporterAgent'],
+];
+
+function getNode(id: string) {
+  return AGENT_NODES.find(n => n.id === id);
+}
 
 export default function AgentTrace() {
   const [traces, setTraces] = useState<TraceLine[]>([]);
@@ -39,50 +60,31 @@ export default function AgentTrace() {
   const [completedAgents, setCompletedAgents] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<RunHistory[]>([]);
   const terminalRef = useRef<HTMLDivElement>(null);
-  const [runInstance, setRunInstance] = useState<string>('Standby');
+  const [runInstance, setRunInstance] = useState<string>('IDLE');
 
   const loadHistory = async () => {
     try {
-      const hist = await auditOrchestrator.getRunHistory();
-      setHistory(hist);
+      const allTraces = await auditService.getTraces();
+      const runs: RunHistory[] = (Array.from(new Set(allTraces.map((t: any) => t.run_id as string))) as string[])
+        .map((rid: string) => {
+          const runTraces = allTraces.filter((t: any) => t.run_id === rid);
+          return {
+            run_id: rid,
+            timestamp: runTraces[0]?.timestamp || '',
+            duration_ms: runTraces.reduce((acc: number, t: any) => acc + (t.duration_ms || 0), 0),
+            status: runTraces.some((t: any) => t.status === 'completed') ? 'completed' : 'running'
+          };
+        })
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 8);
+      setHistory(runs);
     } catch (e) {
       console.error(e);
     }
   };
 
-  useEffect(() => {
-    loadHistory();
+  useEffect(() => { loadHistory(); }, []);
 
-    const handleTraceEvent = (e: CustomEvent) => {
-      const { agent, status, message, duration } = e.detail;
-      const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}.${now.getMilliseconds().toString().padStart(3,'0')}`;
-
-      setTraces(prev => [...prev, {
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: timeStr,
-        agent,
-        status,
-        message,
-        duration
-      }]);
-
-      if (status === 'running') {
-        setActiveAgents(prev => new Set(prev).add(agent));
-        setCompletedAgents(prev => { const s = new Set(prev); s.delete(agent); return s; });
-      } else if (status === 'completed') {
-        setActiveAgents(prev => { const s = new Set(prev); s.delete(agent); return s; });
-        setCompletedAgents(prev => new Set(prev).add(agent));
-      } else if (status === 'error') {
-        setActiveAgents(prev => { const s = new Set(prev); s.delete(agent); return s; });
-      }
-    };
-
-    window.addEventListener('agent:step', handleTraceEvent as EventListener);
-    return () => window.removeEventListener('agent:step', handleTraceEvent as EventListener);
-  }, []);
-
-  // Auto-scroll terminal
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
@@ -91,215 +93,367 @@ export default function AgentTrace() {
 
   const startAudit = async () => {
     setTraces([]);
-    setActiveAgents(new Set(['PlannerAgent'])); // Implicit planner start
+    setActiveAgents(new Set(['PlannerAgent']));
     setCompletedAgents(new Set());
     setIsRunning(true);
-    setRunInstance('Starting...');
+    setRunInstance('INITIALIZING');
 
     try {
-      const summary = await auditOrchestrator.runCompleteAudit();
-      setRunInstance(summary.run_id);
-      setActiveAgents(new Set());
-      setCompletedAgents(new Set(AGENT_NODES.map(a => a.id))); // mark all complete mostly
+      toast.loading("Initiating audit orchestration...", { id: 'trace-audit', icon: <Cpu className="text-gold" size={16} /> });
+      
+      const result = await auditService.runAudit();
+      const runId = result.run_id;
+      setRunInstance(runId.slice(0, 12).toUpperCase());
+      
+      // The audit is now running in the background. Start polling immediately.
+      let pollCount = 0;
+      const MAX_POLLS = 100; // Allow for roughly 2 minutes of execution
+      
+      const poll = async () => {
+        // If the user cancelled or we're not running, stop
+        if (pollCount > 0) {
+           // We'll use a ref or check state if needed, but for now closure is okay
+        }
+        
+        try {
+          const updatedTraces = await auditService.getTraces(runId);
+          const frontendTraces = updatedTraces.map((t: any) => ({
+            id: t.trace_id,
+            timestamp: new Date(t.timestamp).toLocaleTimeString('en-GB'),
+            agent: t.agent_name,
+            status: t.status,
+            message: t.action,
+            duration: t.duration_ms
+          }));
+          
+          setTraces(frontendTraces);
+          
+          const active = new Set<string>();
+          const completed = new Set<string>();
+          frontendTraces.forEach((t: any) => {
+            if (t.status === 'running') active.add(t.agent);
+            if (t.status === 'completed') completed.add(t.agent);
+          });
+          setActiveAgents(active);
+          setCompletedAgents(completed);
+          
+          // Check for final completion signal from ReporterAgent
+          const isDone = updatedTraces.some((t: any) => t.agent_name === 'ReporterAgent' && t.status === 'completed');
+          const hasError = updatedTraces.some((t: any) => t.status === 'error');
+          
+          if (hasError) {
+             setIsRunning(false);
+             toast.error("Audit pipeline failure detected.", { id: 'trace-audit' });
+             return;
+          }
+
+          if (isDone) {
+            setIsRunning(false);
+            setActiveAgents(new Set());
+            toast.success("Intelligence audit complete.", { id: 'trace-audit', duration: 4000 });
+            loadHistory();
+            return;
+          }
+
+          if (pollCount < MAX_POLLS) {
+            pollCount++;
+            setTimeout(poll, 1500);
+          } else {
+            setIsRunning(false);
+            setActiveAgents(new Set());
+            toast.error("Orchestrator timeout: Max duration exceeded.", { id: 'trace-audit' });
+          }
+        } catch (pollErr) {
+          console.error("Poll error:", pollErr);
+          // Retry on intermittent network errors
+          if (pollCount < MAX_POLLS) {
+            pollCount++;
+            setTimeout(poll, 2000);
+          }
+        }
+      };
+      
+      poll();
     } catch (e: any) {
-      console.error("Audit aborted:", e.message);
-    } finally {
+      console.error("Audit initiation failed:", e);
+      toast.error("Failed to connect to Orchestrator.", { id: 'trace-audit' });
       setIsRunning(false);
-      setActiveAgents(new Set());
-      loadHistory();
     }
   };
 
   const cancelAudit = () => {
-    auditOrchestrator.cancelAudit();
     setIsRunning(false);
-  };
-
-  const downloadJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(traces, null, 2));
-    const dlAnchorElem = document.createElement('a');
-    dlAnchorElem.setAttribute("href", dataStr);
-    dlAnchorElem.setAttribute("download", `audit_trace_${runInstance}.json`);
-    dlAnchorElem.click();
+    toast.dismiss('trace-audit');
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-void)' }}>
+    <div className="page-container" style={{ padding: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', display: 'flex' }}>
       
-      {/* LEFT COLUMN: 40% (Flow Diagram) */}
-      <div style={{ width: '40%', borderRight: '1px solid var(--border-subtle)', padding: '40px', display: 'flex', flexDirection: 'column' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', color: 'var(--text-primary)', margin: 0 }}>Agent Architecture</h1>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-muted)' }}>Live orchestration nodes mapping standard sequential logic</p>
+      {/* Sidebar: Pipeline & History */}
+      <div style={{ width: '300px', background: 'var(--bg-raised)', borderRight: '1px solid var(--border-surface)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)', letterSpacing: '2px', marginBottom: '8px' }}>PIPELINE_ORCHESTRATOR</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isRunning ? (
+              <button className="btn-secondary" onClick={cancelAudit} style={{ color: 'var(--crimson-bright)', borderColor: 'var(--crimson-dim)' }}>
+                <StopCircle size={14} /> HALT
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={startAudit} style={{ width: '100%' }}>
+                <PlayCircle size={14} /> INITIATE AUDIT
+              </button>
+            )}
+          </div>
         </div>
 
-        <div style={{ flex: 1, position: 'relative', marginTop: '40px', overflow: 'visible' }}>
-          <svg width="100%" height="500" viewBox="0 0 600 500" style={{ overflow: 'visible' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', padding: '0 8px' }}>
+            <History size={14} className="text-gold" />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>RECENT_RUNS</span>
+          </div>
+          
+          {history.map(h => (
+            <motion.div 
+              key={h.run_id} 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              style={{ 
+                padding: '12px', 
+                borderRadius: '4px', 
+                background: 'var(--bg-base)', 
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '10px',
+                cursor: 'pointer'
+              }}
+              whileHover={{ borderColor: 'var(--gold-dim)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span className="mono text-gold" style={{ fontSize: '10px' }}>{h.run_id.slice(0, 12)}</span>
+                <span className={`badge ${h.status}`} style={{ fontSize: '8px', padding: '2px 6px' }}>{h.status.toUpperCase()}</span>
+              </div>
+              <div className="mono" style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>
+                {new Date(h.timestamp).toLocaleString()} • {h.duration_ms}ms
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Area: Split between Diagram and Terminal */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-void)' }}>
+        
+        {/* Top: Agent Diagram */}
+        <div style={{ height: '55%', position: 'relative', borderBottom: '1px solid var(--border-surface)', background: 'radial-gradient(circle at center, rgba(198, 172, 118, 0.05) 0%, transparent 70%)' }}>
+          <div className="diamond-grid" style={{ position: 'absolute', inset: 0, opacity: 0.15 }} />
+          
+          <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+             <div className="pulse" style={{ width: '8px', height: '8px', background: isRunning ? 'var(--lime-bright)' : 'var(--text-tertiary)', borderRadius: '50%' }} />
+             <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SYSTEM_LOAD: {isRunning ? '48%' : '2%'}</span>
+          </div>
+
+          <svg width="100%" height="100%" viewBox="0 0 700 500" style={{ overflow: 'visible', pointerEvents: 'none' }}>
             <defs>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
+              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-subtle)" />
+              </marker>
+              <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="var(--gold-bright)" />
+              </marker>
             </defs>
 
-            {/* Render connecting lines based on explicit pathing */}
-            <path d="M 350 75 L 150 175" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            <path d="M 350 75 L 350 175" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            <path d="M 350 75 L 550 175" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            
-            <path d="M 550 200 L 550 300" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            <path d="M 550 325 L 350 325" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            <path d="M 350 325 L 150 325" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
-            <path d="M 150 325 L 350 400" stroke="var(--border-subtle)" strokeWidth="2" fill="none" />
+            {/* Edges */}
+            {EDGES.map(([fromId, toId], i) => {
+              const from = getNode(fromId);
+              const to = getNode(toId);
+              if (!from || !to) return null;
+              
+              const isEdgeActive = activeAgents.has(fromId) || (completedAgents.has(fromId) && activeAgents.has(toId));
+              const isEdgeDone = completedAgents.has(fromId) && completedAgents.has(toId);
+              
+              // Smart anchor selection
+              const dx = to.cx - from.cx;
+              const dy = to.cy - from.cy;
+              
+              let startX = from.cx;
+              let startY = from.cy;
+              let endX = to.cx;
+              let endY = to.cy;
 
-            {/* Render Nodes */}
+              if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+                // Primarily horizontal
+                startX += (dx > 0 ? NODE_W / 2 : -NODE_W / 2);
+                endX += (dx > 0 ? -NODE_W / 2 : NODE_W / 2);
+                // Add a small offset for the arrowhead
+                endX += (dx > 0 ? -4 : 4);
+              } else {
+                // Primarily vertical
+                startY += (dy > 0 ? NODE_H / 2 : -NODE_H / 2);
+                endY += (dy > 0 ? -NODE_H / 2 : NODE_H / 2);
+                // Add a small offset for the arrowhead
+                endY += (dy > 0 ? -4 : 4);
+              }
+
+              let d = "";
+              if (startX === endX || startY === endY) {
+                d = `M ${startX} ${startY} L ${endX} ${endY}`;
+              } else {
+                // Cubic Bezier for smooth S-shape
+                // If vertical, control points are vertical offsets
+                // If horizontal, control points are horizontal offsets
+                if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+                  const cp1x = startX + (endX - startX) / 2;
+                  const cp2x = startX + (endX - startX) / 2;
+                  d = `M ${startX} ${startY} C ${cp1x} ${startY}, ${cp2x} ${endY}, ${endX} ${endY}`;
+                } else {
+                  const cp1y = startY + (endY - startY) / 2;
+                  const cp2y = startY + (endY - startY) / 2;
+                  d = `M ${startX} ${startY} C ${startX} ${cp1y}, ${endX} ${cp2y}, ${endX} ${endY}`;
+                }
+              }
+              
+              return (
+                <g key={`edge-${i}`}>
+                   <path
+                    d={d}
+                    fill="none"
+                    stroke={isEdgeDone ? 'rgba(0, 255, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)'}
+                    strokeWidth="1"
+                  />
+                  <motion.path
+                    d={d}
+                    fill="none"
+                    stroke={isEdgeActive ? 'var(--gold-bright)' : isEdgeDone ? 'var(--lime-dim)' : 'transparent'}
+                    strokeWidth={isEdgeActive ? 2 : 1}
+                    strokeDasharray={isEdgeActive ? '5 5' : 'none'}
+                    markerEnd={isEdgeActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)'}
+                    initial={false}
+                    animate={{ strokeDashoffset: isEdgeActive ? -20 : 0 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Nodes */}
             {AGENT_NODES.map((node) => {
               const isActive = activeAgents.has(node.id);
               const isDone = completedAgents.has(node.id);
-              // Basic color mapping
-              let fillColor = 'var(--bg-card)';
-              let borderColor = 'var(--border-subtle)';
-              let textColor = 'var(--text-secondary)';
-
-              if (isActive) {
-                fillColor = 'var(--bg-card-hover)';
-                borderColor = 'var(--border-glow)';
-                textColor = 'var(--accent-teal)';
-              } else if (isDone) {
-                fillColor = 'rgba(0, 217, 192, 0.1)';
-                borderColor = 'var(--accent-teal)';
-                textColor = 'var(--accent-teal)';
-              }
-
-              // Latest message search
-              const lastRelevantMsg = [...traces].reverse().find(t => t.agent === node.id)?.message || '';
-
+              
               return (
-                <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
+                <g key={node.id} style={{ pointerEvents: 'auto', cursor: 'default' }}>
                   <rect 
-                    x="0" y="0" width="200" height="50" rx="6"
-                    fill={fillColor}
-                    stroke={borderColor}
-                    strokeWidth="2"
-                    filter={isActive ? 'url(#glow)' : ''}
-                    style={{ transition: 'all 0.3s' }}
+                    x={node.cx - NODE_W / 2} y={node.cy - NODE_H / 2} width={NODE_W} height={NODE_H}
+                    fill="var(--bg-raised)"
+                    stroke={isActive ? 'var(--gold-bright)' : isDone ? 'var(--lime-bright)' : 'var(--border-surface)'}
+                    strokeWidth={isActive ? '2' : '1'}
+                    style={{ 
+                      transition: 'all 0.4s',
+                      filter: isActive ? 'drop-shadow(0 0 8px var(--gold-mid))' : 'none'
+                    }}
                   />
-                  <text x="100" y="30" textAnchor="middle" fill={textColor} style={{ fontFamily: 'var(--font-heading)', fontSize: '13px', fontWeight: 'bold' }}>
-                    {node.label}
-                  </text>
-                  {lastRelevantMsg && (
-                    <text x="100" y="70" textAnchor="middle" fill="var(--text-muted)" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
-                      {lastRelevantMsg.slice(0, 30)}{lastRelevantMsg.length > 30 ? '...' : ''}
-                    </text>
+                  <foreignObject x={node.cx - NODE_W / 2 + 10} y={node.cy - NODE_H / 2 + 10} width={NODE_W - 20} height={NODE_H - 20}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '100%', color: isActive ? 'var(--gold-bright)' : isDone ? 'var(--lime-bright)' : 'var(--text-secondary)' }}>
+                      {node.icon}
+                      <span className="mono" style={{ fontSize: '11px', fontWeight: 600 }}>{node.label}</span>
+                    </div>
+                  </foreignObject>
+                  {isActive && (
+                    <circle cx={node.cx + NODE_W / 2 - 15} cy={node.cy - NODE_H / 2 + 15} r="3" fill="var(--gold-bright)">
+                      <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                  )}
+                  {isDone && (
+                    <CheckCircle2 size={12} x={node.cx + NODE_W / 2 - 20} y={node.cy - NODE_H / 2 + 10} className="text-lime" />
                   )}
                 </g>
               );
             })}
           </svg>
         </div>
-      </div>
 
-      {/* RIGHT COLUMN: 60% (Terminal Wrapper) */}
-      <div style={{ width: '60%', padding: '40px', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* Terminal Header Chrome */}
-        <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderBottom: 'none', borderRadius: '12px 12px 0 0', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--danger)' }} />
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--warning)' }} />
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--success)' }} />
+        {/* Bottom: Terminal */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#08090a' }}>
+          <div style={{ 
+            padding: '8px 24px', 
+            background: 'var(--bg-raised)', 
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex', 
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <TerminalIcon size={14} className="text-gold" />
+              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>LIVE_AGENT_TRACE :: {runInstance}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+               <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }} onClick={() => toast('Clearing buffer...')}>CLEAR</button>
+               <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }} onClick={() => toast('Exporting logs...')}>EXPORT</button>
+            </div>
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-muted)' }}>
-            Agent Trace — Run {runInstance}
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {isRunning ? (
-              <button onClick={cancelAudit} style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-heading)', fontSize: '12px' }}>
-                <StopCircle size={16} /> Halt
-              </button>
-            ) : (
-              <button onClick={startAudit} style={{ background: 'var(--accent-teal)', border: 'none', borderRadius: '4px', padding: '6px 12px', color: 'var(--bg-void)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-heading)', fontSize: '12px' }}>
-                <PlayCircle size={16} /> Start
-              </button>
+          
+          <div 
+            ref={terminalRef}
+            style={{ 
+              flex: 1, 
+              padding: '20px 24px', 
+              overflowY: 'auto', 
+              fontFamily: 'var(--font-mono)', 
+              fontSize: '12px', 
+              lineHeight: '1.7',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            {traces.length === 0 && !isRunning && (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
+                <span className="mono">SYSTEM_IDLE: AWAITING_COMMAND_INPUT_</span>
+              </div>
             )}
-            <button onClick={downloadJSON} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 12px', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-heading)', fontSize: '12px' }}>
-              <Download size={16} /> JSON
-            </button>
+            {traces.map((t, idx) => (
+              <motion.div 
+                key={t.id}
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}
+              >
+                <span style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}>{t.timestamp}</span>
+                <span className="mono" style={{ color: 'var(--gold-mid)', width: '150px', flexShrink: 0 }}>{t.agent}</span>
+                <span style={{ color: t.status === 'error' ? 'var(--crimson-bright)' : 'var(--text-primary)' }}>
+                  {t.message}
+                </span>
+                {t.duration && <span style={{ marginLeft: 'auto', color: 'var(--text-tertiary)', fontSize: '10px' }}>+{t.duration}ms</span>}
+              </motion.div>
+            ))}
+            {isRunning && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-bright)', marginTop: '4px' }}>
+                <ChevronRight size={14} />
+                <span className="blink">_</span>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Live Terminal Content */}
-        <div ref={terminalRef} style={{ background: '#05070A', border: '1px solid var(--border-subtle)', borderRadius: '0 0 12px 12px', flex: 1, padding: '24px', overflowY: 'auto', maxHeight: '500px', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.6, scrollBehavior: 'smooth' }}>
-          {traces.length === 0 && !isRunning && (
-            <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '100px' }}>Waiting for execution signal... Initialize master orchestrator.</div>
-          )}
-          {traces.map(t => (
-            <div key={t.id} style={{ display: 'flex', gap: '12px', marginBottom: '4px', minWidth: 0 }}>
-              <span style={{ color: 'rgba(139, 160, 181, 0.3)', flexShrink: 0 }}>[{t.timestamp}]</span>
-              
-              {t.status === 'running' && <span style={{ color: 'var(--warning)', minWidth: '16px', flexShrink: 0 }}>►</span>}
-              {t.status === 'completed' && <span style={{ color: 'var(--success)', minWidth: '16px', flexShrink: 0 }}>✓</span>}
-              {t.status === 'error' && <span style={{ color: 'var(--danger)', minWidth: '16px', flexShrink: 0 }}>✗</span>}
-
-              <span style={{ color: 'var(--accent-teal)', fontWeight: 'bold', width: '160px', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.agent}</span>
-              <span style={{ color: 'var(--text-primary)', flex: 1, wordBreak: 'break-word' }}>{t.message}</span>
-              
-              {t.duration !== undefined && (
-                <span style={{ color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0, minWidth: '60px' }}>+{t.duration}ms</span>
-              )}
-            </div>
-          ))}
-          {/* Animated Blinking Cursor */}
-          {isRunning && (
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px', animation: 'blink 1s infinite' }}>
-              <span style={{ background: 'var(--text-primary)', width: '8px', height: '16px', display: 'inline-block' }} />
-            </div>
-          )}
-        </div>
-
-        {/* Action History Component */}
-        <div style={{ marginTop: '40px' }}>
-          <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '16px', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', margin: '0 0 16px' }}>Run History (Last 10 Executions)</h3>
-          <table style={{ width: '100%', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ color: 'var(--text-muted)' }}>
-                <th style={{ padding: '12px 0' }}>Run ID</th>
-                <th>Timestamp</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map(h => (
-                <tr key={h.run_id} style={{ borderBottom: '1px solid rgba(31, 45, 61, 0.4)' }}>
-                  <td style={{ padding: '12px 0', color: 'var(--accent-purple)' }}>{h.run_id}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{new Date(h.timestamp).toLocaleString()}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{h.duration_ms}ms</td>
-                  <td>
-                    {h.status === 'completed' || h.status === 'success' ? (
-                      <span style={{ color: 'var(--success)', padding: '2px 8px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '12px' }}>✔ SUCCESS</span>
-                    ) : h.status === 'cancelled' ? (
-                      <span style={{ color: 'var(--warning)', padding: '2px 8px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '12px' }}>■ CANCELED</span>
-                    ) : (
-                      <span style={{ color: 'var(--danger)', padding: '2px 8px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px' }}>✖ ERROR</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {history.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: '16px 0', color: 'var(--text-muted)' }}>No historical traces.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
-      
+
       <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
+        .blink {
+          animation: blink-anim 1s step-end infinite;
+        }
+        @keyframes blink-anim {
           50% { opacity: 0; }
+        }
+        ::-webkit-scrollbar {
+          width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: var(--border-surface);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: var(--gold-mid);
         }
       `}</style>
     </div>
   );
 }
+

@@ -63,13 +63,7 @@ export default function Dashboard() {
         }} />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '32px',
-            fontWeight: 800,
-            color: 'var(--text-primary)',
-            marginBottom: '8px'
-          }}>
+          <h1 className="page-title">
             Executive Overview
           </h1>
           <p style={{

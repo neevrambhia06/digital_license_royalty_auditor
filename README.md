@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# digital_license_royalty_auditor
-=======
 # Digital License Royalty Auditor
 
 Full-stack AI-powered platform for detecting royalty leakage.
@@ -21,4 +18,3 @@ Full-stack AI-powered platform for detecting royalty leakage.
 2. Run `python generate_data.py`.
 3. Start backend: `cd backend && pip install -r requirements.txt && uvicorn main:app --reload`.
 4. Start frontend: `cd frontend && npm install && npm run dev`.
->>>>>>> 5dc6981 (Initial commit)

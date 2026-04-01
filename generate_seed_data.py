@@ -75,6 +75,7 @@ def generate_contracts():
         rate_per_play = round(random.uniform(0.01, 0.05), 4)
         tier_threshold = random.choice([50000, 75000, 100000, 150000, 200000])
         tier_rate = round(rate_per_play * 0.85, 4)
+        minimum_guarantees = round(random.uniform(2500, 25000), 2)
 
         num_territories = random.randint(2, 5)
         territory = random.sample(TERRITORIES, num_territories)
@@ -94,19 +95,42 @@ def generate_contracts():
             "end_date": str(end_date),
             "tier_threshold": tier_threshold,
             "tier_rate": tier_rate,
+            "minimum_guarantees": minimum_guarantees,
         })
 
     path = os.path.join(DATA_DIR, "contracts_1000.csv")
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=contracts[0].keys())
+        w = csv.DictWriter(f, fieldnames=list(contracts[0].keys()) + ["contract_text"])
         w.writeheader()
         for row in contracts:
             row_copy = dict(row)
-            # Store territory as PostgreSQL array literal
-            row_copy["territory"] = "{" + ",".join(row["territory"]) + "}"
+            # Store territory as comma separated for simple CSV handling
+            row_copy["territory"] = ",".join(row["territory"])
+            # Generate pseudo-legal text for this contract
+            text = f"""
+DIGITAL LICENSE ROYALTY AGREEMENT: {row['contract_id']}
+Title: {row['content_id']} | Studio: {row['studio']}
+Authorized Territories: {', '.join(row['territory'])}
+Term: {row['start_date']} to {row['end_date']}
+Rate: ${row['rate_per_play']} per play. 
+Tiering: After {row['tier_threshold']} plays, rate adjustments to ${row['tier_rate']}.
+Compliance: Any distribution outside authorized regions or after expiry constitutes a breach.
+            """
+            row_copy["contract_text"] = text.strip()
             w.writerow(row_copy)
 
+    # Also export as a combined text file for the "Reader" narrative
+    text_path = os.path.join(DATA_DIR, "contracts_text.txt")
+    with open(text_path, "w", encoding="utf-8") as f:
+        for row in contracts:
+            f.write(f"--- START CONTRACT {row['contract_id']} ---\n")
+            f.write(f"CONTENT: {row['content_id']}\n")
+            f.write(f"TERRITORY: {', '.join(row['territory'])}\n")
+            f.write(f"EXPIRY: {row['end_date']}\n")
+            f.write(f"--- END CONTRACT ---\n\n")
+
     print(f"  -> {path}  ({len(contracts)} rows)")
+    print(f"  -> {text_path}")
     return contracts
 
 
@@ -169,15 +193,20 @@ def generate_streaming_logs(contracts):
 
         # Determine timestamp
         if i in expired_violation_indices:
-            # Timestamp after contract end_date
+            # Timestamp after contract end_date (explicit expired usage injection)
             end_dt = datetime.strptime(contract["end_date"], "%Y-%m-%d")
             after_end = end_dt + timedelta(days=random.randint(1, 180))
-            # Clamp to ts_end
-            if after_end > ts_end:
-                after_end = ts_end - timedelta(days=random.randint(1, 30))
             ts = after_end
         else:
-            ts = ts_start + timedelta(seconds=random.randint(0, delta_seconds))
+            contract_start = datetime.strptime(contract["start_date"], "%Y-%m-%d")
+            contract_end = datetime.strptime(contract["end_date"], "%Y-%m-%d")
+            valid_start = max(ts_start, contract_start)
+            valid_end = min(ts_end, contract_end)
+            if valid_end <= valid_start:
+                ts = valid_start
+            else:
+                win_seconds = int((valid_end - valid_start).total_seconds())
+                ts = valid_start + timedelta(seconds=random.randint(0, win_seconds))
 
         plays = random.randint(100, 5000)
         user_type = random.choices(user_types, weights=user_weights, k=1)[0]
@@ -221,9 +250,15 @@ def generate_payments(contracts, logs):
     payments = []
     total_leakage = 0.0
     idx = 0
+    expected_by_key = {}
 
     # Sort for determinism
     sorted_keys = sorted(agg.keys())
+
+    # If there are too many month-content keys, downsample to configured payment volume.
+    if len(sorted_keys) > TOTAL_PAYMENTS:
+        sorted_keys = random.sample(sorted_keys, TOTAL_PAYMENTS)
+        sorted_keys = sorted(sorted_keys)
 
     # Determine which payment indices get errors
     n_payments = len(sorted_keys)
@@ -252,11 +287,19 @@ def generate_payments(contracts, logs):
             expected = (threshold * base_rate) + ((total_plays - threshold) * tier_rate)
 
         expected = round(expected, 2)
+        expected_by_key[(content_id, month)] = expected
 
         # Inject leakage
+        is_under_min = False
         if i in underpay_indices:
-            discount = random.uniform(0.10, 0.25)
-            amount_paid = round(expected * (1 - discount), 2)
+            # PRD Section 7: Enforce Minimum Guarantees leakage
+            if random.random() < 0.2: # 20% of underpayments are specifically "Below Minimum Guarantee"
+                amount_paid = round(contract["minimum_guarantees"] * 0.9, 2)
+                is_under_min = True
+            else:
+                discount = random.uniform(0.10, 0.25)
+                amount_paid = round(expected * (1 - discount), 2)
+            
             leakage = expected - amount_paid
             total_leakage += leakage
         elif i in overpay_indices:
@@ -281,15 +324,28 @@ def generate_payments(contracts, logs):
         })
         idx += 1
 
-    # Scale underpayments to hit the leakage target if needed
-    if total_leakage < LEAKAGE_TARGET * 0.8:
-        scale_factor = LEAKAGE_TARGET / max(total_leakage, 1)
+    # Scale underpayments to track leakage target more closely.
+    if underpay_indices and total_leakage > 0:
+        multiplier = LEAKAGE_TARGET / total_leakage
         for i, p in enumerate(payments):
-            if i in underpay_indices:
-                key = (p["content_id"], str(p["payment_date"])[:7])
-                expected_val = agg.get(key, 0) * contract_map[p["content_id"]]["rate_per_play"]
-                new_discount = random.uniform(0.15, 0.35)
-                p["amount_paid"] = round(expected_val * (1 - new_discount), 2)
+            if i not in underpay_indices:
+                continue
+            key = (p["content_id"], str(p["payment_date"])[:7])
+            expected_val = expected_by_key.get(key)
+            if expected_val is None or expected_val <= 0:
+                continue
+            current_discount = max(0.01, 1 - (p["amount_paid"] / expected_val))
+            target_discount = min(0.60, max(0.05, current_discount * multiplier))
+            p["amount_paid"] = round(expected_val * (1 - target_discount), 2)
+
+    # Recompute leakage after target-scaling adjustments.
+    total_leakage = 0.0
+    for i, p in enumerate(payments):
+        if i not in underpay_indices:
+            continue
+        key = (p["content_id"], str(p["payment_date"])[:7])
+        expected_val = expected_by_key.get(key, 0.0)
+        total_leakage += max(0.0, expected_val - p["amount_paid"])
 
     path = os.path.join(DATA_DIR, "payments_ledger.csv")
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -322,10 +378,10 @@ def main():
     print(f"  Contracts:      {len(contracts):>10,}")
     print(f"  Streaming Logs: {len(logs):>10,}")
     print(f"  Payments:       {len(payments):>10,}")
-    print(f"  Output dir:     {os.path.abspath(DATA_DIR)}")
+    print(f"  Output dir:      {os.path.abspath(DATA_DIR)}")
     print("=" * 60)
     print()
-    print("Next step: python seed_supabase.py")
+    print("Next step: python api/seed_sqlite.py")
 
 
 if __name__ == "__main__":

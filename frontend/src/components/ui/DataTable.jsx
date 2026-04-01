@@ -148,7 +148,7 @@ export default function DataTable({
                       transition: 'background-color 0.1s ease'
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)';
+                      e.currentTarget.style.backgroundColor = 'rgba(232, 184, 75, 0.06)';
                     }}
                     onMouseOut={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -262,23 +262,25 @@ function PaginationButton({ children, disabled, onClick }) {
         justifyContent: 'center',
         width: '28px',
         height: '28px',
-        background: 'transparent',
-        border: '1px solid var(--border-subtle)',
+        background: 'rgba(255, 255, 255, 0.04)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
         borderRadius: 'var(--radius-sm)',
         color: disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.1s ease',
+        transition: 'all 0.15s ease',
         opacity: disabled ? 0.4 : 1
       }}
       onMouseOver={(e) => {
         if (!disabled) {
-          e.currentTarget.style.borderColor = 'var(--accent-teal)';
-          e.currentTarget.style.color = 'var(--accent-teal)';
+          e.currentTarget.style.borderColor = 'var(--status-warning)';
+          e.currentTarget.style.backgroundColor = 'rgba(232, 184, 75, 0.06)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }
       }}
       onMouseOut={(e) => {
         if (!disabled) {
-          e.currentTarget.style.borderColor = 'var(--border-subtle)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
           e.currentTarget.style.color = 'var(--text-secondary)';
         }
       }}

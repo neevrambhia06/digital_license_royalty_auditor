@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, ShieldCheck } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 
 export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
   const navigate = useNavigate();
+  const { loginAsGuest } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,23 +19,12 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
     setErrorMsg('');
 
     try {
-      const sanitizedEmail = email.trim();
-      if (isSignup) {
-        const { error } = await supabase.auth.signUp({
-          email: sanitizedEmail,
-          password
-        });
-        if (error) throw error;
-        // Simple success handling
-        navigate('/dashboard'); // session change hook will catch it
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: sanitizedEmail,
-          password
-        });
-        if (error) throw error;
-        navigate('/dashboard');
-      }
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Auto-login as guest for the demo
+      loginAsGuest();
+      navigate('/dashboard');
     } catch (err: any) {
       setErrorMsg(err.message || 'Authentication failed');
     } finally {
@@ -64,7 +54,40 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
         pointerEvents: 'none'
       }} />
 
+      {/* Back to Home Link */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        style={{
+          position: 'absolute',
+          top: '40px',
+          left: '40px',
+          zIndex: 10
+        }}
+      >
+        <Link 
+          to="/" 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--text-muted)',
+            textDecoration: 'none',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '11px',
+            fontWeight: 600,
+            transition: 'all 0.2s',
+            letterSpacing: '0.05em'
+          }}
+          onMouseOver={e => e.currentTarget.style.color = 'var(--accent-teal)'}
+          onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <ArrowLeft size={14} /> BACK TO HOME
+        </Link>
+      </motion.div>
+
       <motion.div
+        key={isSignup ? 'signup' : 'login'}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -102,7 +125,7 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
               letterSpacing: '0.05em',
               margin: 0
             }}>
-              DLRA
+              AuditIQ
             </h1>
           </div>
 
@@ -142,7 +165,7 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
 
           <form onSubmit={handleAuth} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>EMAIL DOMAIN</label>
+              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>LOGIN ID</label>
               <input 
                 type="email"
                 value={email}
@@ -168,7 +191,7 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
             </div>
 
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>ACCESS HASH</label>
+              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>PASSWORD</label>
               <input 
                 type="password"
                 value={password}
@@ -232,11 +255,35 @@ export default function AuthPage({ isSignup = false }: { isSignup?: boolean }) {
 
           <div style={{ marginTop: '24px', fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-muted)' }}>
             {isSignup ? (
-              <>Already hold clearance? <Link to="/login" style={{ color: 'var(--accent-teal)', textDecoration: 'none', fontWeight: 600 }}>Sign in</Link></>
+              <>Already hold clearance? <Link to="/login" style={{ color: 'var(--text-primary)', textDecoration: 'underline', textDecorationColor: 'var(--accent-teal)', textUnderlineOffset: '4px', fontWeight: 600 }}>Sign in</Link></>
             ) : (
-              <>Require auditing access? <Link to="/signup" style={{ color: 'var(--accent-teal)', textDecoration: 'none', fontWeight: 600 }}>Register operator</Link></>
+              <>Require auditing access? <Link to="/signup" style={{ color: 'var(--text-primary)', textDecoration: 'underline', textDecorationColor: 'var(--accent-teal)', textUnderlineOffset: '4px', fontWeight: 600 }}>Register operator</Link></>
             )}
           </div>
+
+          <button
+            onClick={() => {
+              loginAsGuest();
+              navigate('/dashboard');
+            }}
+            style={{
+              marginTop: '16px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px dashed var(--border-subtle)',
+              color: 'var(--text-secondary)',
+              padding: '8px 20px',
+              borderRadius: '4px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '11px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              width: '100%'
+            }}
+            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+          >
+            [ EMERGENCY OVERRIDE ] ENTER AS GUEST
+          </button>
 
         </Card>
       </motion.div>

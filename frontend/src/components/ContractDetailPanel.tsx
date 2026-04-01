@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText, Activity } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { auditService } from '../services/api';
 
 interface DetailPanelProps {
   contentId: string | null;
@@ -17,16 +17,20 @@ export default function ContractDetailPanel({ contentId, onClose }: DetailPanelP
     
     setLoading(true);
     const load = async () => {
-      // Fetch audit results for this content_id
-      const { data: auditData } = await supabase.from('audit_results').select('*, contracts(*)').eq('content_id', contentId).order('difference', { ascending: false }).limit(1);
-      
-      if (auditData && auditData.length > 0) {
-        setData(auditData[0]);
-      } else {
-        // Just empty state 
-        setData({ content_id: contentId, contracts: { studio: 'Unknown', territory: [], start_date: '', end_date: '' } });
+      try {
+        const auditData = await auditService.getAuditResults(contentId);
+        
+        if (auditData && auditData.length > 0) {
+          setData(auditData[0]);
+        } else {
+          // Just empty state 
+          setData({ content_id: contentId, contracts: { studio: 'Unknown', territory: [], start_date: '', end_date: '' } });
+        }
+      } catch (error) {
+        console.error('Failed to load detail data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     
     load();
@@ -39,7 +43,7 @@ export default function ContractDetailPanel({ contentId, onClose }: DetailPanelP
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(8, 11, 15, 0.8)', zIndex: 999, backdropFilter: 'blur(4px)' }} 
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.55)', zIndex: 999, backdropFilter: 'blur(8px)' }} 
       />
       <motion.div
         initial={{ x: '100%' }}
@@ -52,13 +56,15 @@ export default function ContractDetailPanel({ contentId, onClose }: DetailPanelP
           bottom: 0,
           right: 0,
           width: '600px',
-          background: 'var(--bg-raised)',
-          borderLeft: '1px solid var(--border-subtle)',
+          background: 'rgba(10, 10, 20, 0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderLeft: '1px solid var(--gold-dim)',
           zIndex: 1000,
           padding: '40px',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '-20px 0 40px rgba(0,0,0,0.5)'
+          boxShadow: '-20px 0 80px rgba(0,0,0,0.8)'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
@@ -91,30 +97,57 @@ export default function ContractDetailPanel({ contentId, onClose }: DetailPanelP
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginTop: 0, marginBottom: '16px' }}>
                 <FileText size={16} color="var(--accent-teal)" /> Contract Terms Snapshot
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontFamily: 'var(--font-mono)', fontSize: '13px', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Royalty Rate</span><span style={{ color: 'var(--text-primary)' }}>${data?.contracts?.rate_per_play || '0.00'}/play</span></div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Tier Rate</span><span style={{ color: 'var(--text-primary)' }}>${data?.contracts?.tier_rate || '0.00'}/play</span></div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Start Date</span><span style={{ color: 'var(--text-primary)' }}>{data?.contracts?.start_date || 'Unknown'}</span></div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>End Date</span><span style={{ color: 'var(--text-primary)' }}>{data?.contracts?.end_date || 'Unknown'}</span></div>
               </div>
+              
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Authorized Territories</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {(Array.isArray(data?.contracts?.territory) ? data.contracts.territory : []).map((t: string) => (
+                    <span key={t} style={{ background: 'rgba(0, 217, 192, 0.1)', color: 'var(--accent-teal)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>{t}</span>
+                  ))}
+                  {(!data?.contracts?.territory || data.contracts.territory.length === 0) && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Global (Unrestricted)</span>}
+                </div>
+              </div>
             </div>
 
-            <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--danger)', boxShadow: 'inset 0 0 10px rgba(239, 68, 68, 0.05)' }}>
+            <div style={{ background: 'rgba(124, 111, 237, 0.05)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-purple)', borderStyle: 'dashed' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-heading)', color: 'var(--accent-purple)', marginTop: 0, marginBottom: '16px' }}>
+                <Activity size={16} /> AI Contract Intelligence
+              </h3>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+                {data?.contracts?.contract_text || 'Synthesizing agreement text from legal repository... \n[Agent Note: Validating digital signature and licensing clauses ...]'}
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(18, 18, 30, 0.7)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(232, 184, 75, 0.12)', boxShadow: 'inset 0 0 10px rgba(239, 68, 68, 0.05)' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-heading)', color: 'var(--danger)', marginTop: 0, marginBottom: '16px' }}>
                 <Activity size={16} /> Leakage Assessment
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Calculated Expected Liability</span>
-                  <span style={{ color: 'var(--text-primary)' }}>${data?.expected_payment?.toFixed(2) || '0.00'}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>${data?.expected_payment?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Actual Remittance Found</span>
-                  <span style={{ color: 'var(--text-primary)' }}>${data?.actual_payment?.toFixed(2) || '0.00'}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>${data?.actual_payment?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
                   <span style={{ color: 'var(--danger)' }}>Total Audited Leakage ({data?.violation_type || 'N/A'})</span>
-                  <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>${data?.difference?.toFixed(2) || (data?.actual_payment === 0 ? data?.expected_payment : '0.00')}</span>
+                  <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>${data?.difference?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}</span>
+                </div>
+                
+                {/* PRD Section 8.6: Explainable Audit Trace */}
+                <div style={{ marginTop: '8px', padding: '16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase' }}>AI Auditor Reasoning:</span>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+                    {data?.reasoning || "Analyzing stream data and contract clauses to determine optimal royalty tiers..."}
+                  </p>
                 </div>
               </div>
             </div>

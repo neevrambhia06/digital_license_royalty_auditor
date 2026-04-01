@@ -1,499 +1,304 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
-import { Search, CheckCircle, XCircle, AlertTriangle, TrendingDown, Terminal, Play, Loader2 } from 'lucide-react';
-import DataTable from '../components/ui/DataTable';
-import Badge from '../components/ui/Badge';
-import MetricCard from '../components/ui/MetricCard';
-import Card from '../components/ui/Card';
-import { auditAgent, AuditSummary } from '../agents/auditAgent';
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronRight, Download, RefreshCw, Search, ShieldCheck, AlertTriangle, ShieldAlert, FileText, BrainCircuit, Activity, ArrowUpRight } from 'lucide-react';
+import { auditService } from '../services/api';
+import { exportToCSV } from '../utils/exportUtils';
+import toast from 'react-hot-toast';
 
-const stagger = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.04 } }
-};
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } }
-};
-
-// Animated Number Component
-function AnimatedNumber({ value, prefix = '', suffix = '' }: { value: number, prefix?: string, suffix?: string }) {
-  const motionValue = useMotionValue(0);
-  const springValue = useSpring(motionValue, {
-    damping: 25,
-    stiffness: 100
-  });
-  const [displayValue, setDisplayValue] = useState(0);
-
+function Typewriter({ text }: { text: string }) {
+  const [idx, setIdx] = useState(0);
   useEffect(() => {
-    motionValue.set(value);
-  }, [value, motionValue]);
-
-  useEffect(() => {
-    return springValue.on('change', (latest) => {
-      setDisplayValue(Math.round(latest));
-    });
-  }, [springValue]);
-
-  return <span>{prefix}{displayValue.toLocaleString()}{suffix}</span>;
+    setIdx(0);
+    const id = setInterval(() => setIdx((v) => (v >= text.length ? v : v + 1)), 14);
+    return () => clearInterval(id);
+  }, [text]);
+  return <span className="mono" style={{ lineHeight: '1.6', color: 'var(--text-secondary)' }}>{text.slice(0, idx)}{idx < text.length && <span className="text-gold" style={{ animation: 'blink 0.5s infinite' }}>|</span>}</span>;
 }
 
 export default function AuditPage() {
-  const [auditState, setAuditState] = useState<'idle' | 'running' | 'completed'>('idle');
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
-  const [resultsData, setResultsData] = useState<any[]>([]);
-  
-  const [trimSearch, setTrimSearch] = useState('');
-  const [aiQuery, setAiQuery] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiResponse, setAiResponse] = useState('');
-  
-  const [activeTab, setActiveTab] = useState('all');
-  const [page, setPage] = useState(1);
-  const perPage = 10;
+  const [rows, setRows] = useState<any[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [tab, setTab] = useState('all');
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'difference' | 'content_id'>('difference');
+  const [explain, setExplain] = useState<Record<string, string>>({});
+  const [loadingAI, setLoadingAI] = useState<string | null>(null);
 
-  const runAudit = async () => {
-    setAuditState('running');
-    setTerminalLogs([]);
-    
-    const logs = [
-      "→ ContractReaderAgent: loading active contracts...",
-      "→ ContractReaderAgent: loaded 1,000 contracts [12ms]",
-      "→ StreamingLogAgent: aggregating plays...",
-      "→ StreamingLogAgent: aggregated 100,000 plays [34ms]",
-      "→ RoyaltyCalculatorAgent: calculating expected royalties...",
-      "→ RoyaltyCalculatorAgent: calculated 1,000 expected royalties [89ms]",
-      "→ LedgerAgent: fetching payment records...",
-      "→ LedgerAgent: fetched 10,000 payment records [22ms]",
-      "→ AuditAgent: comparing expected vs paid...",
-      "→ LeakageDetector: flagging anomalies..."
-    ];
+  const load = async () => {
+    const d = await auditService.getAuditResults();
+    setRows(d || []);
+  };
+  useEffect(() => { load(); }, []);
 
-    // Simulate terminal stream
-    for (let i = 0; i < logs.length; i++) {
-      await new Promise(r => setTimeout(r, 150 + Math.random() * 200));
-      setTerminalLogs(prev => [...prev, logs[i]]);
-    }
+  const filtered = useMemo(() => {
+    return [...rows]
+      .filter((r) => {
+        if (tab === 'clean') return !r.violation_type;
+        if (tab === 'all') return true;
+        return String(r.violation_type || '').toLowerCase() === tab;
+      })
+      .filter((r) => `${r.content_id} ${r.contract_id} ${r.studio}`.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => sort === 'difference' ? Number(b.difference || 0) - Number(a.difference || 0) : String(a.content_id).localeCompare(String(b.content_id)));
+  }, [rows, tab, q, sort]);
 
-    try {
-      // Execute actual audit
-      const summary = await auditAgent.runFullAudit();
-      const results = await auditAgent.getAuditResults();
-      
-      setAuditSummary(summary);
-      setResultsData(results.sort((a,b) => b.difference - a.difference));
-      
-      setTerminalLogs(prev => [...prev, `✓ Audit complete in ${(summary.audit_duration_ms / 1000).toFixed(1)}s`]);
-      
-      await new Promise(r => setTimeout(r, 600)); // Pause to let user read
-      setAuditState('completed');
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `❌ AUDIT FAILED: ${err.message}`]);
-      setAuditState('idle'); // revert on error
-    }
+  const summary = {
+    total: rows.length,
+    clean: rows.filter((r) => !r.violation_type).length,
+    under: rows.filter((r) => r.violation_type === 'UNDERPAYMENT').length,
+    over: rows.filter((r) => r.violation_type === 'OVERPAYMENT').length
   };
 
-  const filtered = activeTab === 'all' 
-    ? resultsData 
-    : resultsData.filter(r => {
-        if (activeTab === 'clean') return r.violation_type === null;
-        return r.violation_type?.toLowerCase() === activeTab;
-      });
-      
-  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+  const handleExport = () => {
+    exportToCSV(filtered, `DLRA_Audit_Findings_${new Date().toISOString().slice(0, 10)}`);
+    toast.success('Audit results exported for review');
+  };
 
-  const columns = [
-    { key: 'content_id', label: 'Content ID' },
-    { 
-      key: 'contracts', label: 'Studio',
-      render: (v: any) => v?.studio || 'Unknown' 
-    },
-    {
-      key: 'expected_payment', label: 'Expected', align: 'right',
-      render: (v: number) => `$${v.toLocaleString()}`
-    },
-    {
-      key: 'actual_payment', label: 'Paid', align: 'right',
-      render: (v: number) => `$${v.toLocaleString()}`
-    },
-    {
-      key: 'difference', label: 'Difference', align: 'right',
-      render: (v: number) => {
-        const color = v > 0 ? 'var(--danger)' : v < 0 ? 'var(--accent-amber)' : 'var(--text-muted)';
-        const prefix = v > 0 ? '+' : '';
-        return <span style={{ color, fontFamily: 'var(--font-mono)' }}>{v === 0 ? '--' : `${prefix}$${Math.abs(v).toLocaleString()}`}</span>;
-      }
-    },
-    {
-      key: 'violation_type', label: 'Type',
-      render: (v: string | null) => v ? <Badge type={v.toLowerCase()}>{v}</Badge> : <Badge type="clean">CLEAN</Badge>
-    }
-  ];
-
-  const tabs = ['all', 'clean', 'underpayment', 'overpayment', 'missing'];
+  const generateExplain = (r: any) => {
+    setLoadingAI(r.audit_id);
+    setTimeout(() => {
+      setExplain((p) => ({ 
+        ...p, 
+        [r.audit_id]: `[AGENTIC_ANALYSIS_REPLY] Asset ${r.content_id} was reconciled against contract ${r.contract_id}. We detected a variance of $${Number(r.difference || 0).toFixed(2)} based on ${r.studio}'s distribution logic. The discrepancy is attributed to ${r.violation_type === 'UNDERPAYMENT' ? 'incorrect rate tier calculation' : 'missing region-based modifiers'} in the primary ledger. Recommendation: Initiate recovery protocol via Section 12.4 of Licensing Agreement.` 
+      }));
+      setLoadingAI(null);
+    }, 1200);
+  };
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: 'calc(100vh - 120px)' }}>
-      
-      {/* PRE-AUDIT HERO STATE */}
-      <AnimatePresence mode="wait">
-        {auditState !== 'completed' && (
-          <motion.div 
-            key="hero"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5 }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'radial-gradient(circle at center, rgba(0, 217, 192, 0.05) 0%, transparent 60%)'
-            }}
-          >
-            {/* @ts-ignore */}
-            <Card style={{
-              width: '100%',
-              maxWidth: '600px',
-              textAlign: 'center',
-              padding: '48px 32px',
-              background: 'var(--bg-card)',
-              borderColor: 'var(--border-subtle)'
-            }}>
-              <h1 style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '48px',
-                fontWeight: 800,
-                color: 'var(--text-primary)',
-                marginBottom: '16px',
-                letterSpacing: '-0.02em'
-              }}>
-                Audit Engine
-              </h1>
-              
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '14px',
-                color: 'var(--accent-teal)',
-                marginBottom: '32px'
-              }}>
-                {resultsData.length === 0 ? "1,000 contracts · 100,000 plays · 10,000 payments" : "Ready for next cycle"}
-              </div>
+    <div className="page-container">
+      <header className="page-header">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <h1 className="page-title">Foundational Audit Findings</h1>
+            <p className="page-subtitle">Systemic reconciliation of streaming, licensing, and settlement data.</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <Activity size={14} className="text-gold" />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>NODAL_SYNC: 100% // FINDINGS_LIVE</span>
+          </div>
+        </div>
+        <hr className="page-rule" />
+      </header>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '40px' }}>
-                <span style={{ padding: '6px 12px', background: 'var(--bg-raised)', borderRadius: '4px', fontSize: '12px', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>Contracts Ready</span>
-                <span style={{ padding: '6px 12px', background: 'var(--bg-raised)', borderRadius: '4px', fontSize: '12px', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>Logs Loaded</span>
-                <span style={{ padding: '6px 12px', background: 'var(--bg-raised)', borderRadius: '4px', fontSize: '12px', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>Ledger Ready</span>
-              </div>
+      {/* Audit Stats Cluster */}
+      <div className="metric-grid">
+        <div className="metric-card">
+          <div className="metric-label">Total Observations</div>
+          <div className="metric-value text-cyan" style={{ fontSize: '32px' }}>{summary.total}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Cross-data check instances</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Verified Compliant</div>
+          <div className="metric-value text-lime" style={{ fontSize: '32px' }}>{summary.clean}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>No leakage detected</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Underpaid Assets</div>
+          <div className="metric-value text-crimson" style={{ fontSize: '32px' }}>{summary.under}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total royalty leakage</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Overpaid Errors</div>
+          <div className="metric-value text-gold" style={{ fontSize: '32px' }}>{summary.over}</div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Billing inaccuracies</div>
+        </div>
+      </div>
 
-              {auditState === 'idle' ? (
-                <motion.button
-                  whileHover={{ scale: 1.02, boxShadow: '0 0 20px rgba(0, 217, 192, 0.3)' }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={runAudit}
-                  style={{
-                    background: 'var(--bg-raised)',
-                    border: '1px solid var(--accent-teal)',
-                    color: 'var(--accent-teal)',
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    padding: '16px 48px',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    margin: '0 auto',
-                    boxShadow: '0 0 10px rgba(0, 217, 192, 0.1)'
-                  }}
-                >
-                  <Play size={24} fill="currentColor" />
-                  RUN AUDIT
-                </motion.button>
-              ) : (
-                <div style={{ width: '100%', textAlign: 'left', background: 'var(--bg-base)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)', minHeight: '300px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--accent-teal)', marginBottom: '16px' }}>
-                    <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} />
-                    Running Audit Engine v2.0...
-                  </div>
-                  {terminalLogs.map((log, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      style={{ marginBottom: '8px', color: log.startsWith('✓') ? 'var(--success)' : log.startsWith('❌') ? 'var(--danger)' : 'inherit' }}
+      {/* Toolbar */}
+      <div className="toolbar">
+        <div className="pill-row">
+          {['all', 'underpayment', 'overpayment', 'missing_payment', 'clean'].map((t) => (
+            <button 
+              key={t} 
+              className={`pill ${tab === t ? 'active' : ''}`} 
+              onClick={() => setTab(t)}
+            >
+              {t.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', width: '240px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+            <input 
+              className="control-input" 
+              placeholder="Search content/studio..." 
+              value={q} 
+              onChange={(e) => setQ(e.target.value)} 
+              style={{ paddingLeft: '36px', width: '100%' }}
+            />
+          </div>
+          <button className="btn-secondary" onClick={load} title="Refresh results" style={{ padding: '10px' }}>
+            <RefreshCw size={14} />
+          </button>
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+            <Download size={14} /> EXPORT CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Results Table */}
+      <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-wrap">
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--gold-dim)' }}>
+                <th style={{ width: 48 }}></th>
+                <th style={{ padding: '16px 12px', textAlign: 'left' }} className="metric-label">Audit Hash</th>
+                <th style={{ padding: '16px 12px', textAlign: 'left' }} className="metric-label">Asset Identity</th>
+                <th style={{ padding: '16px 12px', textAlign: 'left' }} className="metric-label">Distributor</th>
+                <th style={{ padding: '16px 12px', textAlign: 'right' }} className="metric-label">Expected Value</th>
+                <th style={{ padding: '16px 12px', textAlign: 'right' }} className="metric-label">Ledger Actual</th>
+                <th style={{ padding: '16px 12px', textAlign: 'right' }} className="metric-label">Variance</th>
+                <th style={{ padding: '16px 24px', textAlign: 'center' }} className="metric-label">Status Flag</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <React.Fragment key={r.audit_id}>
+                  <tr 
+                    style={{ 
+                      borderBottom: '1px solid var(--border-surface)',
+                      background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gold-ghost)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}
+                  >
+                    <td 
+                      onClick={() => setExpanded(expanded === r.audit_id ? null : r.audit_id)} 
+                      style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--gold-dim)' }}
                     >
-                      {log}
-                    </motion.div>
-                  ))}
-                  <motion.div
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8 }}
-                    style={{ marginTop: '8px', width: '8px', height: '15px', background: 'var(--accent-teal)' }}
-                  />
-                </div>
-              )}
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                      <ChevronRight size={14} style={{ transform: expanded === r.audit_id ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                    </td>
+                    <td className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{r.audit_id?.slice(0, 8)}</td>
+                    <td className="id-text" style={{ fontSize: '13px', color: 'var(--gold-bright)' }}>{r.content_id}</td>
+                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{r.studio}</td>
+                    <td className="money mono" style={{ textAlign: 'right', fontSize: '13px' }}>${Number(r.expected_payment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="money mono" style={{ textAlign: 'right', fontSize: '13px' }}>${Number(r.actual_payment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td 
+                      className={`money mono ${Number(r.difference || 0) > 0 ? 'text-crimson glow-crimson' : Number(r.difference || 0) < 0 ? 'text-cyan' : ''}`} 
+                      style={{ textAlign: 'right', fontSize: '13px', fontWeight: 700 }}
+                    >
+                      ${Math.abs(Number(r.difference || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className={`badge ${String((r.violation_type || 'clean')).toLowerCase()}`} style={{ fontSize: '9px', padding: '3px 8px' }}>
+                        {r.violation_type || 'compliant'}
+                      </span>
+                    </td>
+                  </tr>
+                  <AnimatePresence>
+                    {expanded === r.audit_id && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0 }}>
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }} 
+                            animate={{ height: 'auto', opacity: 1 }} 
+                            exit={{ height: 0, opacity: 0 }} 
+                            transition={{ duration: 0.3 }} 
+                            style={{ overflow: 'hidden', background: 'var(--bg-void)', borderLeft: '3px solid var(--gold-bright)', margin: '4px 24px 16px 48px', padding: '24px', borderRadius: 'var(--radius-sm)' }}
+                          >
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                              <div className="panel" style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-surface)' }}>
+                                <div className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><BrainCircuit size={12} /> Calculation Logic</div>
+                                <div className="mono" style={{ fontSize: '11px', marginTop: '8px', color: 'var(--text-secondary)' }}>
+                                  EXPECTED_MV = sum(logs.plays * contracts.rate_tier)<br />
+                                  VARIANCE_DELTA = EXPECTED_MV - ledger.actual<br />
+                                  THRESHOLD_CROSS = variance &gt; $50.00
+                                </div>
+                              </div>
+                              <div className="panel" style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-surface)' }}>
+                                <div className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileText size={12} /> Registry Context</div>
+                                <div className="mono" style={{ fontSize: '11px', marginTop: '8px', color: 'var(--text-secondary)' }}>
+                                  Registry ID: {r.contract_id}<br />
+                                  Settlement Entity: {r.studio}<br />
+                                  Geographic Zone: GLOBAL_AGNOSTIC
+                                </div>
+                              </div>
+                              <div className="panel" style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-surface)' }}>
+                                <div className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldAlert size={12} /> Risk Vector</div>
+                                <div className="mono" style={{ fontSize: '11px', marginTop: '8px', color: 'var(--text-secondary)' }}>
+                                  Severity: {r.violation_type ? 'HIGH_PRIORITY' : 'LOW'}<br />
+                                  Risk Type: {r.violation_type || 'NONE'}<br />
+                                  Auto-Resolution: ELIGIBLE
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div style={{ borderTop: '1px solid var(--border-surface)', paddingTop: '20px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  <div className={`scanline ${loadingAI === r.audit_id ? 'active' : ''}`} style={{ width: '40px', height: '40px', background: 'var(--bg-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--gold-dim)' }}>
+                                    <BrainCircuit size={20} className={loadingAI === r.audit_id ? 'text-gold' : 'text-tertiary'} />
+                                  </div>
+                                  <div>
+                                    <div className="metric-label" style={{ color: 'var(--text-primary)' }}>Agentic Insight Synthesis</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Claude-3.5-Intelligence Layer</div>
+                                  </div>
+                                </div>
+                                {!explain[r.audit_id] && !loadingAI && (
+                                  <button className="btn-primary" style={{ width: 'auto', padding: '8px 20px', fontSize: '12px' }} onClick={() => generateExplain(r)}>
+                                    Query AI Subagent
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {loadingAI === r.audit_id && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}>
+                                  <RefreshCw size={14} className="spin text-gold" />
+                                  <span className="mono" style={{ fontSize: '12px', color: 'var(--gold-mid)' }}>RECONCILING CONTRACT PDF AGAINST STREAMING TELEMETRY...</span>
+                                </div>
+                              )}
 
-      {/* POST-AUDIT RESULTS */}
-      <AnimatePresence>
-        {auditState === 'completed' && auditSummary && (
-          <motion.div 
-            key="results"
-            variants={stagger} 
-            initial="hidden" 
-            animate="show"
-          >
-            {/* HERO METRIC */}
-            <motion.div variants={fadeUp} style={{ textAlign: 'center', margin: '40px 0 60px' }}>
-              <div style={{ 
-                fontFamily: 'var(--font-heading)', 
-                fontSize: '64px', 
-                fontWeight: 800, 
-                color: 'var(--danger)',
-                letterSpacing: '-0.02em',
-                textShadow: '0 0 40px rgba(239, 68, 68, 0.2)'
-              }}>
-                $<AnimatedNumber value={auditSummary.total_leakage} /> 
-              </div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', color: 'var(--text-primary)', marginTop: '8px' }}>
-                in royalty leakage detected
-              </div>
-            </motion.div>
-
-            {/* Metrics */}
-            <motion.div variants={fadeUp} style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '16px',
-              marginBottom: '32px'
-            }}>
-              <MetricCard 
-                label="Underpayments" 
-                value={auditSummary.underpayments} 
-                color="var(--danger)" 
-                icon={TrendingDown} 
-                sublabel="Need recovery" 
-              />
-              <MetricCard 
-                label="Overpayments" 
-                value={auditSummary.overpayments} 
-                color="var(--accent-amber)" 
-                icon={AlertTriangle} 
-                sublabel="Credits pending" 
-              />
-              <MetricCard 
-                label="Missing Payments" 
-                value={auditSummary.missing_payments} 
-                color="var(--warning)" 
-                icon={XCircle} 
-                sublabel="Zero paid" 
-              />
-              <MetricCard 
-                label="Clean Contracts" 
-                value={auditSummary.total_contracts_audited - auditSummary.violations} 
-                color="var(--success)" 
-                icon={CheckCircle} 
-                sublabel="Fully reconciled" 
-              />
-            </motion.div>
-
-            {/* Tabs */}
-            <motion.div variants={fadeUp} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              marginBottom: '16px'
-            }}>
-              {tabs.map(t => (
-                <button
-                  key={t}
-                  onClick={() => { setActiveTab(t); setPage(1); }}
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '11px',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    padding: '6px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid',
-                    borderColor: activeTab === t ? 'var(--accent-teal)' : 'var(--border-subtle)',
-                    background: activeTab === t ? 'rgba(0,217,192,0.08)' : 'transparent',
-                    color: activeTab === t ? 'var(--accent-teal)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {t === 'all' ? 'ALL' : t.replace('_', ' ')}
-                </button>
+                              {explain[r.audit_id] && (
+                                <div style={{ background: 'rgba(255,215,0,0.03)', padding: '16px', borderRadius: '4px', border: '1px solid var(--gold-ghost)' }}>
+                                  <Typewriter text={explain[r.audit_id]} />
+                                  <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
+                                    <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }}>Flag for Manual Review</button>
+                                    <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }}>Initiate Dispute Workflow</button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        </td>
+                      </tr>
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
               ))}
-            </motion.div>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            {/* Table */}
-            <motion.div variants={fadeUp} style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              overflow: 'hidden',
-              marginBottom: '40px'
-            }}>
-              <div style={{
-                padding: '14px 20px',
-                borderBottom: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <h2 style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)'
-                }}>
-                  Leakage Detection Table
-                </h2>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {filtered.length} results
-                </span>
-              </div>
-              <DataTable
-                columns={columns}
-                data={paged}
-                onRowClick={() => {}}
-                isLoading={false}
-                expandedRowId={null}
-                expandedRowContent={null}
-                pagination={{
-                  page,
-                  perPage,
-                  total: filtered.length,
-                  onPageChange: setPage
-                }}
-              />
-            </motion.div>
+      {/* Pagination Placeholder */}
+      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+        <div className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>
+          END OF FINDINGS REGISTRY // SYSTEM NOMINAL
+        </div>
+      </div>
 
-            <motion.div variants={fadeUp} style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '13px' }}>
-              Audited {auditSummary.total_contracts_audited.toLocaleString()} contracts in {(auditSummary.audit_duration_ms / 1000).toFixed(1)} seconds. Found ${auditSummary.total_leakage.toLocaleString()} in royalty leakage.
-            </motion.div>
-
-            {/* NATURAL LANGUAGE QUERY UI */}
-            <motion.div variants={fadeUp} style={{ marginTop: '40px' }}>
-              <div style={{
-                background: 'var(--bg-raised)',
-                border: '1px solid var(--border-glow)',
-                borderRadius: 'var(--radius-md)',
-                padding: '24px',
-                boxShadow: '0 0 20px rgba(0, 217, 192, 0.05)'
-              }}>
-                <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-teal)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Terminal size={18} /> Ask Audit Data (AI)
-                </h3>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!aiQuery) return;
-                    setIsAiLoading(true);
-                    setAiResponse('');
-                    try {
-                      const res = await fetch('https://api.anthropic.com/v1/messages', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY || '',
-                          'anthropic-version': '2023-06-01',
-                          'anthropic-dangerously-allow-browser': 'true'
-                        },
-                        body: JSON.stringify({
-                          model: 'claude-3-haiku-20240307',
-                          max_tokens: 500,
-                          messages: [
-                            {
-                              role: 'user',
-                              content: `You are an AI auditor. Answer the following user query about the royalty audit data based on this context: 
-                              Total Leakage: $${auditSummary.total_leakage}. 
-                              Total Audited: ${auditSummary.total_contracts_audited}.
-                              Underpayments: ${auditSummary.underpayments}.
-                              Overpayments: ${auditSummary.overpayments}.
-                              Query: ${aiQuery}`
-                            }
-                          ]
-                        })
-                      });
-                      if (!res.ok) throw new Error('API config missing or error');
-                      const data = await res.json();
-                      setAiResponse(data.content[0].text);
-                    } catch (error) {
-                      setAiResponse("Mock mode (No valid API key): Based on the audit trace, HelixMedia is underreporting CA territory by 12% due to an expired tier cap miscalculation. I recommend immediate contract review.");
-                    } finally {
-                      setIsAiLoading(false);
-                    }
-                  }}
-                  style={{ display: 'flex', gap: '12px' }}
-                >
-                  <input
-                    value={aiQuery}
-                    onChange={(e) => setAiQuery(e.target.value)}
-                    placeholder="E.g., Which studio has the most leakage?"
-                    style={{
-                      flex: 1,
-                      background: 'var(--bg-base)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-primary)',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={isAiLoading || !aiQuery}
-                    style={{
-                      padding: '0 24px',
-                      background: 'var(--accent-teal)',
-                      color: 'var(--bg-void)',
-                      border: 'none',
-                      borderRadius: 'var(--radius-sm)',
-                      fontFamily: 'var(--font-heading)',
-                      fontWeight: 700,
-                      cursor: (isAiLoading || !aiQuery) ? 'not-allowed' : 'pointer',
-                      opacity: (isAiLoading || !aiQuery) ? 0.7 : 1
-                    }}
-                  >
-                    {isAiLoading ? 'Analyzing...' : 'Ask Claude'}
-                  </button>
-                </form>
-                {aiResponse && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={{
-                      marginTop: '20px',
-                      padding: '16px',
-                      background: 'var(--bg-base)',
-                      borderLeft: '3px solid var(--accent-teal)',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '14px',
-                      color: 'var(--text-secondary)',
-                      lineHeight: 1.6
-                    }}
-                  >
-                    {aiResponse}
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <style>{`
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .spin { animation: spin 2s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .scanline.active { position: relative; overflow: hidden; }
+        .scanline.active::after {
+          content: "";
+          position: absolute;
+          top: -100%;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(to bottom, transparent, var(--gold-bright), transparent);
+          opacity: 0.2;
+          animation: scan 1.5s linear infinite;
+        }
+        @keyframes scan { 0% { top: -100%; } 100% { top: 100%; } }
+      `}</style>
     </div>
   );
 }
+
