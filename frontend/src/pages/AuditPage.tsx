@@ -111,27 +111,28 @@ export default function AuditPage() {
 
       {/* Toolbar / Filters */}
       <div className="filter-bar">
-        <div className="pill-row" style={{ marginRight: '32px' }}>
-          {['all', 'underpayment', 'overpayment', 'missing_payment', 'clean'].map((t) => (
-            <button 
-              key={t} 
-              className={`pill ${tab === t ? 'active' : ''}`} 
-              onClick={() => setTab(t)}
-            >
-              {t.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-        
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
-          <input 
-            className="ghost-input" 
-            placeholder="Search content/studio..." 
-            value={q} 
-            onChange={(e) => setQ(e.target.value)} 
-            style={{ paddingLeft: '24px', width: '100%' }}
-          />
+        <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flex: 1 }}>
+          <select className="ghost-select" value={tab} onChange={(e) => setTab(e.target.value)}>
+            <option value="all">Finding Type (All)</option>
+            <option value="underpayment">Underpayment</option>
+            <option value="overpayment">Overpayment</option>
+            <option value="missing_payment">Missing Payment</option>
+            <option value="clean">Compliant</option>
+          </select>
+          <select className="ghost-select" value={sort} onChange={(e) => setSort(e.target.value as 'difference' | 'content_id')}>
+            <option value="difference">Sort by Variance</option>
+            <option value="content_id">Sort by Asset ID</option>
+          </select>
+          <div style={{ position: 'relative', width: '320px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
+            <input 
+              className="ghost-input" 
+              placeholder="Search content/studio..." 
+              value={q} 
+              onChange={(e) => setQ(e.target.value)} 
+              style={{ paddingLeft: '24px', width: '100%' }}
+            />
+          </div>
         </div>
       </div>
 
