@@ -29,7 +29,10 @@ def seed():
     init_db()
     db = SessionLocal()
     
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    # Robust pathing: Ensure we find the data directory relative to this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    data_dir = os.path.join(project_root, "data")
     
     # 1. Clear existing data
     print("[*] Clearing existing data...")

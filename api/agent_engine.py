@@ -27,6 +27,13 @@ class BaseAgent:
         self.db.commit()
 
 class ContractReaderAgent(BaseAgent):
+    """
+    Intake & Compliance Gate Agent.
+    Simulates parsing of legal-text literals to extract enforceable business logic:
+    1. Base vs. Tiered Rates
+    2. Territorial Guardrails
+    3. Temporal Effective Windows
+    """
     def _simulate_parsing(self, contract):
         # Simulation: Extracting logic from legal text
         tokens = ["Rate per play", "Territory Rules", "Tier Thresholds", "Expiration"]
@@ -45,10 +52,17 @@ class ContractReaderAgent(BaseAgent):
             self._simulate_parsing(c)
 
         duration = int((time.time() - start_time) * 1000)
-        self.log_trace("ContractReaderAgent", f"Read {len(contracts)} contracts and verified legal text alignment", output_data=[c.contract_id for c in contracts], duration_ms=duration)
+        self.log_trace("ContractReaderAgent", f"Analyzed {len(contracts)} contracts: verified legal compliance gates", output_data=[c.contract_id for c in contracts], duration_ms=duration)
         return contracts
 
 class UsageAgent(BaseAgent):
+    """
+    Telemetry Distribution Agent.
+    Aggregates massive raw streaming data (100k+ records) into analytical views:
+    1. Global Totals by Content ID
+    2. Regional Breakdowns for Territory enforcement
+    3. Temporal density for license expiry auditing
+    """
     def run(self, content_ids):
         start_time = time.time()
         from sqlalchemy import func
@@ -70,10 +84,17 @@ class UsageAgent(BaseAgent):
             usage_by_country[r.content_id][r.country] = r.total_plays
             
         duration = int((time.time() - start_time) * 1000)
-        self.log_trace("UsageAgent", f"Aggregated telemetry for {len(content_ids)} assets across multiple regions", output_data={"stats": f"{len(results)} region-asset pairs"}, duration_ms=duration)
+        self.log_trace("UsageAgent", f"Consolidated ingestion for {len(content_ids)} assets: multi-region telemetry", output_data={"stats": f"{len(results)} region-asset pairs"}, duration_ms=duration)
         return {"totals": usage_totals, "by_country": usage_by_country}
 
 class RoyaltyAgent(BaseAgent):
+    """
+    Financial Precision Agent.
+    Applies complex royalty math based on contract logic:
+    1. Simple Rate-per-play
+    2. Blended Tier Pricing (Volume-based discounts)
+    3. Minimum Guarantees (MGs) vs. Calculated Royalties
+    """
     def run(self, contracts, usage_map):
         start_time = time.time()
         royalties = {}
@@ -103,10 +124,15 @@ class RoyaltyAgent(BaseAgent):
             }
         
         duration = int((time.time() - start_time) * 1000)
-        self.log_trace("RoyaltyAgent", "Calculated expected royalties w/ tier logic and minimum guarantees", output_data=royalties, duration_ms=duration)
+        self.log_trace("RoyaltyAgent", "Calculated Expected Royalties: Verified MGs and Blended Tiers", output_data=royalties, duration_ms=duration)
         return royalties
 
 class AuditAgent(BaseAgent):
+    """
+    Financial Discrepancy Agent.
+    Compares the calculated expected royalty against the actual payment recorded in the ledger.
+    Identifies 'Leakage' (Underpayments) and 'Exposure' (Overpayments).
+    """
     def run(self, royalties, payments_map):
         start_time = time.time()
         results = []
@@ -129,10 +155,17 @@ class AuditAgent(BaseAgent):
             })
             
         duration = int((time.time() - start_time) * 1000)
-        self.log_trace("AuditAgent", "Compared expected vs actual payments", output_data=f"Audited {len(results)} items", duration_ms=duration)
+        self.log_trace("AuditAgent", "Analyzed ledger alignment: Expected vs. Actual Payments", output_data=f"Audited {len(results)} financial line items", duration_ms=duration)
         return results
 
 class ViolationAgent(BaseAgent):
+    """
+    Policy Compliance Agent.
+    Cross-references usage telemetry against non-financial contract guardrails:
+    1. Temporal (Start/End Date enforcement)
+    2. Territorial (Geo-blocking compliance)
+    3. Licensing (Missing/Expired content detection)
+    """
     def run(self, contracts, usage_by_country, usage_by_date, audit_results=None):
         start_time = time.time()
         violations = []
