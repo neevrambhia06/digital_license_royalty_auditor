@@ -1,26 +1,26 @@
 /* DLRA LANDING PAGE STYLES */
 
 .dlra-landing {
-    /* Step 2: Color Palette */
-    --void: #07090C;
-    --base: #0C1015;
-    --surface: #111820;
-    --surface-hi: #161F2A;
+    /* Step 2: Color Palette - INVERTED FOR LIGHT THEME */
+    --void: #F7F6F2;
+    --base: #F0EDE4;
+    --surface: #FFFFFF;
+    --surface-hi: #E8E6DF;
 
-    --border: #1A2536;
-    --border-hi: #243348;
+    --border: rgba(0, 0, 0, 0.06);
+    --border-hi: rgba(0, 0, 0, 0.12);
 
-    --teal: #00C9B1;
-    --teal-dim: rgba(0, 201, 177, 0.08);
-    --teal-glow: rgba(0, 201, 177, 0.15);
+    --teal: #B8860B; /* Using Gold for Landing Page primary to match Intelligence theme */
+    --teal-dim: rgba(184, 134, 11, 0.05);
+    --teal-glow: transparent;
 
-    --amber: #E8A020;
-    --red: #E84040;
-    --green: #22C55E;
+    --amber: #B8860B;
+    --red: #C53030;
+    --green: #2F855A;
 
-    --text-1: #EBF2FA;
-    --text-2: #7A96B0;
-    --text-3: #3E5470;
+    --text-1: #1A1A1A;
+    --text-2: #4A4A4A;
+    --text-3: #8C8C8C;
 
     /* Step 3: Typography */
     --font-display: 'Syne', sans-serif;
@@ -83,7 +83,7 @@
 }
 
 /* ========================================= */
-/* TYPOGRAPHY SCALE (Step 3)                 */
+/* TYPOGRAPHY SCALE                          */
 /* ========================================= */
 
 .t-h1 {
@@ -92,6 +92,7 @@
     font-size: clamp(42px, 7vw, 80px);
     line-height: 1.06;
     color: var(--text-1);
+    letter-spacing: -0.02em;
 }
 
 .t-h2 {
@@ -120,12 +121,11 @@
 
 .t-overline {
     font-family: var(--font-body);
-    font-weight: 500;
+    font-weight: 600;
     font-size: 11px;
-    line-height: 1;
     color: var(--text-3);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.15em;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -217,39 +217,14 @@
 /* ========================================= */
 
 .btn-primary {
-    background-color: var(--teal);
-    color: var(--void);
+    background-color: var(--text-1);
+    color: #FFFFFF;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 16px;
-    padding: 12px 24px;
-    border-radius: 5px;
-    border: 1px solid var(--teal);
-    cursor: pointer;
-    transition: filter 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-primary:hover {
-    filter: brightness(0.88);
-}
-
-.btn-primary:focus-visible {
-    outline: 2px solid var(--teal);
-    outline-offset: 4px;
-}
-
-.btn-secondary {
-    background-color: transparent;
-    color: var(--text-1);
-    font-family: var(--font-body);
-    font-weight: 500;
-    font-size: 16px;
-    padding: 12px 24px;
-    border-radius: 5px;
-    border: 1px solid var(--border);
+    font-size: 15px;
+    padding: 14px 28px;
+    border-radius: 4px;
+    border: none;
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -257,14 +232,27 @@
     justify-content: center;
 }
 
-.btn-secondary:hover {
-    border-color: var(--border-hi);
-    color: var(--teal);
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.btn-secondary:focus-visible {
-    outline: 2px solid var(--teal);
-    outline-offset: 4px;
+.btn-secondary {
+    background-color: #FFFFFF;
+    color: var(--text-1);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    padding: 14px 28px;
+    border-radius: 4px;
+    border: 1px solid var(--border-hi);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: var(--base);
+    border-color: var(--text-1);
 }
 
 /* ========================================= */
@@ -272,18 +260,11 @@
 /* ========================================= */
 
 .hero-glow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 800px;
-    background: radial-gradient(ellipse 900px 600px at 50% 0%, rgba(0, 201, 177, 0.04) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
+    display: none; /* Removed for light theme */
 }
 
 .nav {
-    height: 60px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -292,8 +273,7 @@
     left: 0;
     right: 0;
     z-index: 100;
-    background: rgba(7, 9, 12, 0.85);
-    /* var(--void) */
+    background: rgba(247, 246, 242, 0.8);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
 }

@@ -187,15 +187,15 @@ export default function AgentTrace() {
   };
 
   return (
-    <div className="page-container" style={{ padding: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', display: 'flex' }}>
+    <div className="page-container" style={{ padding: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', display: 'flex', background: '#FFFFFF' }}>
       
       {/* Sidebar: Pipeline & History */}
-      <div style={{ width: '300px', background: 'var(--bg-raised)', borderRight: '1px solid var(--border-surface)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '300px', background: 'var(--bg-base)', borderRight: '1px solid var(--border-surface)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)' }}>
           <h2 className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)', letterSpacing: '2px', marginBottom: '8px' }}>PIPELINE_ORCHESTRATOR</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {isRunning ? (
-              <button className="btn-secondary" onClick={cancelAudit} style={{ color: 'var(--crimson-bright)', borderColor: 'var(--crimson-dim)' }}>
+              <button className="btn-secondary" onClick={cancelAudit} style={{ border: '1px solid var(--crimson-dim)', color: 'var(--crimson-hot)' }}>
                 <StopCircle size={14} /> HALT
               </button>
             ) : (
@@ -220,12 +220,12 @@ export default function AgentTrace() {
               style={{ 
                 padding: '12px', 
                 borderRadius: '4px', 
-                background: 'var(--bg-base)', 
-                border: '1px solid var(--border-subtle)',
+                background: '#FFFFFF', 
+                border: '1px solid rgba(0,0,0,0.08)',
                 marginBottom: '10px',
                 cursor: 'pointer'
               }}
-              whileHover={{ borderColor: 'var(--gold-dim)' }}
+              whileHover={{ borderColor: 'var(--gold-dim)', background: 'var(--gold-ghost)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span className="mono text-gold" style={{ fontSize: '10px' }}>{h.run_id.slice(0, 12)}</span>
@@ -240,24 +240,40 @@ export default function AgentTrace() {
       </div>
 
       {/* Main Area: Split between Diagram and Terminal */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-void)' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF' }}>
         
         {/* Top: Agent Diagram */}
-        <div style={{ height: '55%', position: 'relative', borderBottom: '1px solid var(--border-surface)', background: 'radial-gradient(circle at center, rgba(198, 172, 118, 0.05) 0%, transparent 70%)' }}>
-          <div className="diamond-grid" style={{ position: 'absolute', inset: 0, opacity: 0.15 }} />
+        <div style={{ height: '55%', position: 'relative', borderBottom: '1px solid var(--border-surface)', background: 'var(--bg-void)' }}>
+          <div className="diamond-grid" style={{ position: 'absolute', inset: 0, opacity: 0.2 }} />
           
-          <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10 }}>
              <div className="pulse" style={{ width: '8px', height: '8px', background: isRunning ? 'var(--lime-bright)' : 'var(--text-tertiary)', borderRadius: '50%' }} />
              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SYSTEM_LOAD: {isRunning ? '48%' : '2%'}</span>
           </div>
 
           <svg width="100%" height="100%" viewBox="0 0 700 500" style={{ overflow: 'visible', pointerEvents: 'none' }}>
             <defs>
-              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-subtle)" />
+              <marker 
+                id="arrowhead" 
+                markerWidth="12" 
+                markerHeight="12" 
+                refX="11" 
+                refY="6" 
+                orient="auto" 
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M0,2 L10,6 L0,10" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </marker>
-              <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="var(--gold-bright)" />
+              <marker 
+                id="arrowhead-active" 
+                markerWidth="12" 
+                markerHeight="12" 
+                refX="11" 
+                refY="6" 
+                orient="auto" 
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M0,2 L10,6 L0,10" fill="none" stroke="var(--gold-mid)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </marker>
             </defs>
 
@@ -280,16 +296,12 @@ export default function AgentTrace() {
               let endY = to.cy;
 
               if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-                // Primarily horizontal
                 startX += (dx > 0 ? NODE_W / 2 : -NODE_W / 2);
                 endX += (dx > 0 ? -NODE_W / 2 : NODE_W / 2);
-                // Add a small offset for the arrowhead
                 endX += (dx > 0 ? -4 : 4);
               } else {
-                // Primarily vertical
                 startY += (dy > 0 ? NODE_H / 2 : -NODE_H / 2);
                 endY += (dy > 0 ? -NODE_H / 2 : NODE_H / 2);
-                // Add a small offset for the arrowhead
                 endY += (dy > 0 ? -4 : 4);
               }
 
@@ -297,9 +309,6 @@ export default function AgentTrace() {
               if (startX === endX || startY === endY) {
                 d = `M ${startX} ${startY} L ${endX} ${endY}`;
               } else {
-                // Cubic Bezier for smooth S-shape
-                // If vertical, control points are vertical offsets
-                // If horizontal, control points are horizontal offsets
                 if (Math.abs(dx) > Math.abs(dy) * 1.2) {
                   const cp1x = startX + (endX - startX) / 2;
                   const cp2x = startX + (endX - startX) / 2;
@@ -316,15 +325,15 @@ export default function AgentTrace() {
                    <path
                     d={d}
                     fill="none"
-                    stroke={isEdgeDone ? 'rgba(0, 255, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)'}
+                    stroke={isEdgeDone ? 'rgba(74, 124, 16, 0.2)' : 'rgba(0, 0, 0, 0.05)'}
                     strokeWidth="1"
                   />
                   <motion.path
                     d={d}
                     fill="none"
-                    stroke={isEdgeActive ? 'var(--gold-bright)' : isEdgeDone ? 'var(--lime-dim)' : 'transparent'}
+                    stroke={isEdgeActive ? 'var(--gold-mid)' : isEdgeDone ? 'var(--lime-bright)' : 'transparent'}
                     strokeWidth={isEdgeActive ? 2 : 1}
-                    strokeDasharray={isEdgeActive ? '5 5' : 'none'}
+                    strokeDasharray={isEdgeActive ? '4 4' : 'none'}
                     markerEnd={isEdgeActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)'}
                     initial={false}
                     animate={{ strokeDashoffset: isEdgeActive ? -20 : 0 }}
@@ -341,29 +350,37 @@ export default function AgentTrace() {
               
               return (
                 <g key={node.id} style={{ pointerEvents: 'auto', cursor: 'default' }}>
+                  {/* Rotating border container (Problem 2) */}
+                  {isActive && (
+                    <foreignObject x={node.cx - NODE_W / 2 - 2} y={node.cy - NODE_H / 2 - 2} width={NODE_W + 4} height={NODE_H + 4}>
+                      <div className="rotating-border" style={{ width: '100%', height: '100%', borderRadius: '4px' }} />
+                    </foreignObject>
+                  )}
+                  
                   <rect 
                     x={node.cx - NODE_W / 2} y={node.cy - NODE_H / 2} width={NODE_W} height={NODE_H}
-                    fill="var(--bg-raised)"
-                    stroke={isActive ? 'var(--gold-bright)' : isDone ? 'var(--lime-bright)' : 'var(--border-surface)'}
-                    strokeWidth={isActive ? '2' : '1'}
+                    fill="#FFFFFF"
+                    stroke={isActive ? 'var(--gold-mid)' : isDone ? 'var(--lime-bright)' : 'rgba(0,0,0,0.1)'}
+                    strokeWidth={isActive ? '1' : '1'}
+                    rx="4"
                     style={{ 
                       transition: 'all 0.4s',
-                      filter: isActive ? 'drop-shadow(0 0 8px var(--gold-mid))' : 'none'
+                      boxShadow: isActive ? '0 4px 12px rgba(184, 134, 11, 0.15)' : 'none'
                     }}
                   />
                   <foreignObject x={node.cx - NODE_W / 2 + 10} y={node.cy - NODE_H / 2 + 10} width={NODE_W - 20} height={NODE_H - 20}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '100%', color: isActive ? 'var(--gold-bright)' : isDone ? 'var(--lime-bright)' : 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '100%', color: isActive ? 'var(--gold-mid)' : isDone ? 'var(--lime-bright)' : 'var(--text-secondary)' }}>
                       {node.icon}
                       <span className="mono" style={{ fontSize: '11px', fontWeight: 600 }}>{node.label}</span>
                     </div>
                   </foreignObject>
                   {isActive && (
-                    <circle cx={node.cx + NODE_W / 2 - 15} cy={node.cy - NODE_H / 2 + 15} r="3" fill="var(--gold-bright)">
-                      <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite" />
+                    <circle cx={node.cx + NODE_W / 2 - 15} cy={node.cy - NODE_H / 2 + 15} r="2" fill="var(--gold-mid)">
+                      <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite" />
                     </circle>
                   )}
                   {isDone && (
-                    <CheckCircle2 size={12} x={node.cx + NODE_W / 2 - 20} y={node.cy - NODE_H / 2 + 10} className="text-lime" />
+                    <CheckCircle2 size={12} x={node.cx + NODE_W / 2 - 20} y={node.cy - NODE_H / 2 + 10} style={{ color: 'var(--lime-bright)' }} />
                   )}
                 </g>
               );
@@ -372,21 +389,21 @@ export default function AgentTrace() {
         </div>
 
         {/* Bottom: Terminal */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#08090a' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F8F9FA' }}>
           <div style={{ 
             padding: '8px 24px', 
-            background: 'var(--bg-raised)', 
-            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-elevated)', 
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
             display: 'flex', 
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <TerminalIcon size={14} className="text-gold" />
-              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>LIVE_AGENT_TRACE :: {runInstance}</span>
+              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>LIVE_AGENT_TRACE :: {runInstance}</span>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-               <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }} onClick={() => toast('Clearing buffer...')}>CLEAR</button>
+               <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }} onClick={() => setTraces([])}>CLEAR</button>
                <button className="btn-secondary" style={{ fontSize: '10px', padding: '4px 10px' }} onClick={() => toast('Exporting logs...')}>EXPORT</button>
             </div>
           </div>
@@ -405,7 +422,7 @@ export default function AgentTrace() {
           >
             {traces.length === 0 && !isRunning && (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
-                <span className="mono">SYSTEM_IDLE: AWAITING_COMMAND_INPUT_</span>
+                <span className="mono" style={{ color: 'var(--text-tertiary)' }}>SYSTEM_IDLE: AWAITING_COMMAND_INPUT_</span>
               </div>
             )}
             {traces.map((t, idx) => (
@@ -415,16 +432,16 @@ export default function AgentTrace() {
                 animate={{ opacity: 1, x: 0 }}
                 style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}
               >
-                <span style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}>{t.timestamp}</span>
-                <span className="mono" style={{ color: 'var(--gold-mid)', width: '150px', flexShrink: 0 }}>{t.agent}</span>
-                <span style={{ color: t.status === 'error' ? 'var(--crimson-bright)' : 'var(--text-primary)' }}>
+                <span style={{ color: 'var(--text-tertiary)', flexShrink: 0, width: '70px' }}>[{t.timestamp}]</span>
+                <span className="mono" style={{ color: 'var(--gold-mid)', width: '130px', flexShrink: 0 }}>{t.agent}</span>
+                <span style={{ color: t.status === 'error' ? 'var(--crimson-hot)' : 'var(--text-primary)' }}>
                   {t.message}
                 </span>
                 {t.duration && <span style={{ marginLeft: 'auto', color: 'var(--text-tertiary)', fontSize: '10px' }}>+{t.duration}ms</span>}
               </motion.div>
             ))}
             {isRunning && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-bright)', marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-mid)', marginTop: '4px' }}>
                 <ChevronRight size={14} />
                 <span className="blink">_</span>
               </div>
@@ -440,6 +457,32 @@ export default function AgentTrace() {
         @keyframes blink-anim {
           50% { opacity: 0; }
         }
+        .rotating-border {
+          position: relative;
+          background: #FFFFFF;
+          padding: 2px;
+        }
+        .rotating-border::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          padding: 2px;
+          border-radius: 4px;
+          background: conic-gradient(from var(--angle), var(--gold-mid), transparent, var(--gold-mid));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          animation: rotate 2s linear infinite;
+        }
+        @property --angle {
+          syntax: "<angle>";
+          initial-value: 0deg;
+          inherits: false;
+        }
+        @keyframes rotate {
+          to { --angle: 360deg; }
+        }
         ::-webkit-scrollbar {
           width: 5px;
         }
@@ -447,7 +490,7 @@ export default function AgentTrace() {
           background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-          background: var(--border-surface);
+          background: rgba(0,0,0,0.05);
         }
         ::-webkit-scrollbar-thumb:hover {
           background: var(--gold-mid);

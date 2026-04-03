@@ -54,21 +54,21 @@ export default function DataTable({
                   padding: '12px 16px',
                   textAlign: 'left'
                 }}>
-                  <div style={{ height: '12px', width: '72px', background: 'var(--bg-raised)', borderRadius: '2px' }} />
+                  <div style={{ height: '12px', width: '72px', background: 'var(--bg-elevated)', borderRadius: '2px' }} />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {[...Array(6)].map((_, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid rgba(31,45,61,0.4)' }}>
+              <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                 {columns.map(col => (
                   <td key={col.key} style={{ padding: '14px 16px' }}>
                     <div className="dt-shimmer" style={{
                       height: '16px',
                       width: `${50 + Math.random() * 40}%`,
                       borderRadius: '2px',
-                      background: 'linear-gradient(90deg, var(--bg-raised) 25%, var(--bg-card) 50%, var(--bg-raised) 75%)',
+                      background: 'linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%)',
                       backgroundSize: '200% 100%'
                     }} />
                   </td>
@@ -93,7 +93,7 @@ export default function DataTable({
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <tr style={{ borderBottom: '1px solid var(--border-surface)' }}>
               {columns.map((col) => {
                 const numeric = isNumeric(col.key);
                 return (
@@ -102,16 +102,16 @@ export default function DataTable({
                     onClick={() => handleSort(col.key)}
                     style={{
                       fontFamily: 'var(--font-body)',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: 'var(--text-muted)',
-                      padding: '10px 16px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--text-tertiary)',
+                      padding: '12px 16px',
                       cursor: 'pointer',
                       textAlign: col.align || (numeric ? 'right' : 'left'),
                       width: col.width || 'auto',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
-                      letterSpacing: '0.02em',
+                      letterSpacing: '0.08em',
                       textTransform: 'uppercase'
                     }}
                   >
@@ -123,7 +123,7 @@ export default function DataTable({
                     }}>
                       {col.label}
                       {sortConfig?.key === col.key && (
-                        <span style={{ color: 'var(--accent-teal)' }}>
+                        <span style={{ color: 'var(--gold-mid)' }}>
                           {sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </span>
                       )}
@@ -143,12 +143,12 @@ export default function DataTable({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.02, duration: 0.25 }}
                     style={{
-                      borderBottom: '1px solid rgba(31,45,61,0.4)',
+                      borderBottom: '1px solid rgba(0,0,0,0.05)',
                       cursor: onRowClick ? 'pointer' : 'default',
-                      transition: 'background-color 0.1s ease'
+                      transition: 'all 0.15s ease'
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(232, 184, 75, 0.06)';
+                      e.currentTarget.style.backgroundColor = 'var(--gold-ghost)';
                     }}
                     onMouseOut={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -164,8 +164,9 @@ export default function DataTable({
                           fontFamily: (numeric || id) ? 'var(--font-mono)' : 'var(--font-body)',
                           fontSize: '13px',
                           textAlign: col.align || (numeric ? 'right' : 'left'),
-                          color: id ? 'var(--accent-teal)' : 'var(--text-primary)',
-                          letterSpacing: (numeric || id) ? '0.01em' : 'normal'
+                          color: id ? 'var(--gold-mid)' : 'var(--text-primary)',
+                          letterSpacing: (numeric || id) ? '0.01em' : 'normal',
+                          fontWeight: id ? 600 : 400
                         }}>
                           {col.render ? col.render(row[col.key], row) : row[col.key]}
                         </td>
@@ -186,8 +187,8 @@ export default function DataTable({
                           >
                             <div style={{
                               padding: '20px 16px',
-                              background: 'var(--bg-raised)',
-                              borderLeft: '2px solid var(--accent-teal)'
+                              background: 'var(--bg-elevated)',
+                              borderLeft: '3px solid var(--gold-mid)'
                             }}>
                               {expandedRowContent(row)}
                             </div>
@@ -203,13 +204,14 @@ export default function DataTable({
             {sortedData.length === 0 && (
               <tr>
                 <td colSpan={columns.length} style={{
-                  padding: '40px',
+                  padding: '60px',
                   textAlign: 'center',
-                  color: 'var(--text-muted)',
+                  color: 'var(--text-tertiary)',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '13px'
+                  fontSize: '12px',
+                  letterSpacing: '0.05em'
                 }}>
-                  No records found.
+                  :: NO_RECORDS_FOUND_IN_ACTIVE_DATASET ::
                 </td>
               </tr>
             )}
@@ -223,15 +225,16 @@ export default function DataTable({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 16px',
-          borderTop: '1px solid var(--border-subtle)',
+          borderTop: '1px solid var(--border-surface)',
           fontFamily: 'var(--font-mono)',
-          fontSize: '12px',
-          color: 'var(--text-muted)'
+          fontSize: '11px',
+          color: 'var(--text-tertiary)',
+          background: 'var(--bg-base)'
         }}>
           <div>
-            {((pagination.page - 1) * pagination.perPage) + 1}--{Math.min(pagination.page * pagination.perPage, pagination.total)} of {pagination.total}
+            SHOWING {((pagination.page - 1) * pagination.perPage) + 1}–{Math.min(pagination.page * pagination.perPage, pagination.total)} OF {pagination.total} AUDIT_RECORDS
           </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <PaginationButton
               disabled={pagination.page <= 1}
               onClick={() => pagination.onPageChange(pagination.page - 1)}
@@ -260,27 +263,27 @@ function PaginationButton({ children, disabled, onClick }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '28px',
-        height: '28px',
-        background: 'rgba(255, 255, 255, 0.04)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        width: '32px',
+        height: '32px',
+        background: '#FFFFFF',
+        border: '1px solid rgba(0,0,0,0.08)',
         borderRadius: 'var(--radius-sm)',
-        color: disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
+        color: disabled ? 'var(--text-tertiary)' : 'var(--text-secondary)',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.15s ease',
-        opacity: disabled ? 0.4 : 1
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        opacity: disabled ? 0.3 : 1
       }}
       onMouseOver={(e) => {
         if (!disabled) {
-          e.currentTarget.style.borderColor = 'var(--status-warning)';
-          e.currentTarget.style.backgroundColor = 'rgba(232, 184, 75, 0.06)';
-          e.currentTarget.style.color = 'var(--text-primary)';
+          e.currentTarget.style.borderColor = 'var(--gold-mid)';
+          e.currentTarget.style.background = 'var(--gold-ghost)';
+          e.currentTarget.style.color = 'var(--gold-mid)';
         }
       }}
       onMouseOut={(e) => {
         if (!disabled) {
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+          e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)';
+          e.currentTarget.style.background = '#FFFFFF';
           e.currentTarget.style.color = 'var(--text-secondary)';
         }
       }}

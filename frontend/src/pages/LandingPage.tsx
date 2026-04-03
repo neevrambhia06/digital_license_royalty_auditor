@@ -72,12 +72,12 @@ export default function LandingPage() {
           <motion.span
             className="line-framed"
             variants={variants}
-            initial={{ opacity: 0, y: 14, outlineColor: 'transparent' }}
-            animate={{ opacity: 1, y: 0, outlineColor: 'rgba(0,201,177,0.25)' }}
+            initial={{ opacity: 0, y: 14, borderBottomColor: 'transparent' }}
+            animate={{ opacity: 1, y: 0, borderBottomColor: 'var(--gold-mid)' }}
             transition={{ 
                 opacity: { delay: 0.14, duration: 0.45 },
                 y: { delay: 0.14, duration: 0.45 },
-                outlineColor: { delay: 0.32, duration: 0.4 }
+                borderBottomColor: { delay: 0.32, duration: 0.4 }
             }}
             custom={1}
             style={{ originX: 0.5 }}

@@ -65,19 +65,24 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <h1 className="page-title">Foundational Audit Findings</h1>
-            <p className="page-subtitle">Systemic reconciliation of streaming, licensing, and settlement data.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <div>
+          <h1 className="page-title">Foundational Audit Findings</h1>
+          <p className="page-subtitle">Systemic reconciliation of streaming, licensing, and settlement data.</p>
+        </div>
+        <div className="header-actions">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '16px' }}>
             <Activity size={14} className="text-gold" />
             <span className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>NODAL_SYNC: 100% // FINDINGS_LIVE</span>
           </div>
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={14} /> Export CSV
+          </button>
+          <button className="btn-secondary" onClick={load} style={{ padding: '10px' }}>
+            <RefreshCw size={14} />
+          </button>
         </div>
-        <hr className="page-rule" />
       </header>
 
       {/* Audit Stats Cluster */}
@@ -104,9 +109,9 @@ export default function AuditPage() {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="toolbar">
-        <div className="pill-row">
+      {/* Toolbar / Filters */}
+      <div className="filter-bar">
+        <div className="pill-row" style={{ marginRight: '32px' }}>
           {['all', 'underpayment', 'overpayment', 'missing_payment', 'clean'].map((t) => (
             <button 
               key={t} 
@@ -118,23 +123,15 @@ export default function AuditPage() {
           ))}
         </div>
         
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ position: 'relative', width: '240px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-            <input 
-              className="control-input" 
-              placeholder="Search content/studio..." 
-              value={q} 
-              onChange={(e) => setQ(e.target.value)} 
-              style={{ paddingLeft: '36px', width: '100%' }}
-            />
-          </div>
-          <button className="btn-secondary" onClick={load} title="Refresh results" style={{ padding: '10px' }}>
-            <RefreshCw size={14} />
-          </button>
-          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-            <Download size={14} /> EXPORT CSV
-          </button>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
+          <input 
+            className="ghost-input" 
+            placeholder="Search content/studio..." 
+            value={q} 
+            onChange={(e) => setQ(e.target.value)} 
+            style={{ paddingLeft: '24px', width: '100%' }}
+          />
         </div>
       </div>
 

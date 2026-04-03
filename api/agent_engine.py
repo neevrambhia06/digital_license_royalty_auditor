@@ -4,7 +4,7 @@ import csv
 import os
 from datetime import datetime
 from sqlalchemy.orm import Session
-from .models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
+from models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
 
 class BaseAgent:
     def __init__(self, db: Session, run_id: str):
@@ -357,7 +357,7 @@ class AuditOrchestrator:
         }
 
     def _export_csv_outputs(self):
-        from .database import IS_VERCEL
+        from database import IS_VERCEL
         if IS_VERCEL:
             data_dir = "/tmp/data"
         else:

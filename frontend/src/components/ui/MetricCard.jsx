@@ -35,29 +35,34 @@ export default function MetricCard({ label, value, prefix = '', suffix = '', col
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div style={{
           fontFamily: 'var(--font-body)',
-          fontSize: '13px',
-          fontWeight: 500,
-          color: 'var(--text-secondary)',
-          marginBottom: '16px'
+          fontSize: '11px',
+          fontWeight: 600,
+          color: 'var(--text-tertiary)',
+          marginBottom: '16px',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase'
         }}>
           {label}
         </div>
         {Icon && (
-          <Icon size={18} color={color || 'var(--text-muted)'} strokeWidth={1.5} />
+          <Icon size={16} color={color || 'var(--text-tertiary)'} strokeWidth={2} />
         )}
       </div>
 
-      <AnimatedNumber value={value} prefix={prefix} suffix={suffix} color={color} />
+      <AnimatedNumber value={value} prefix={prefix} suffix={suffix} color={color || 'var(--text-primary)'} />
 
       {sublabel && (
         <div style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '11px',
-          color: 'var(--text-muted)',
+          fontSize: '10px',
+          color: 'var(--text-tertiary)',
           marginTop: '12px',
-          letterSpacing: '0.01em'
+          letterSpacing: '0.02em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
         }}>
-          {sublabel}
+          <span style={{ opacity: 0.5 }}>::</span> {sublabel.toUpperCase()}
         </div>
       )}
     </Card>

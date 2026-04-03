@@ -48,19 +48,22 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <h1 className="page-title">Payment Reconciliation Ledger</h1>
-            <p className="page-subtitle">Verified financial settlements and ledger accuracy auditing.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <FileCheck size={16} className="text-gold" />
-            <span className="mono" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>LEDGER_SYNC_VERIFIED</span>
-          </div>
+        <div>
+          <h1 className="page-title">Payment Reconciliation Ledger</h1>
+          <p className="page-subtitle">Verified financial settlements and ledger accuracy auditing.</p>
         </div>
-        <hr className="page-rule" />
+        <div className="header-actions">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '16px' }}>
+            <FileCheck size={16} className="text-gold" />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>LEDGER_SYNC_VERIFIED</span>
+          </div>
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={14} /> Export CSV
+          </button>
+          <button className="btn-primary">Sync Ledger</button>
+        </div>
       </header>
 
       {/* Financial Stats */}
@@ -98,53 +101,48 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="toolbar">
-        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+      {/* Toolbar / Filters */}
+      <div className="filter-bar">
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
           <input 
-            className="control-input" 
+            className="ghost-input" 
             placeholder="Search Ledger ID / Content ID..." 
             value={search} 
             onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
-            style={{ paddingLeft: '36px', width: '100%' }}
+            style={{ paddingLeft: '24px', width: '100%' }}
           />
         </div>
         
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
-            <Calendar size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} />
             <input 
-              className="control-input" 
+              className="ghost-input" 
               type="month" 
               value={month} 
               onChange={(e) => { setMonth(e.target.value); setPage(1); }} 
-              style={{ paddingLeft: '36px' }} 
+              style={{ width: '140px' }} 
             />
           </div>
 
-          <div style={{ position: 'relative' }}>
-            <DollarSign size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>RANGE</span>
             <input 
-              className="control-input" 
-              placeholder="Min" 
+              className="ghost-input" 
+              placeholder="Min ($)" 
               value={minAmt} 
               onChange={(e) => { setMinAmt(e.target.value); setPage(1); }} 
-              style={{ paddingLeft: '32px', width: '80px' }} 
+              style={{ width: '80px' }} 
+            />
+            <span className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>TO</span>
+            <input 
+              className="ghost-input" 
+              placeholder="Max ($)" 
+              value={maxAmt} 
+              onChange={(e) => { setMaxAmt(e.target.value); setPage(1); }} 
+              style={{ width: '80px' }} 
             />
           </div>
-
-          <input 
-            className="control-input" 
-            placeholder="Max" 
-            value={maxAmt} 
-            onChange={(e) => { setMaxAmt(e.target.value); setPage(1); }} 
-            style={{ width: '80px' }} 
-          />
-
-          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-            <Download size={14} /> EXPORT LEDGER
-          </button>
         </div>
       </div>
 

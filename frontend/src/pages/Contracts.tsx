@@ -6,13 +6,13 @@ import { exportToCSV } from '../utils/exportUtils';
 import toast from 'react-hot-toast';
 
 export default function Contracts() {
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [territory, setTerritory] = useState('all');
   const [studio, setStudio] = useState('all');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<any>(null);
 
   useEffect(() => { 
     auditService.getContracts(1000).then(setRows); 
@@ -40,56 +40,49 @@ export default function Contracts() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <h1 className="page-title">Contractual Intelligence Index</h1>
-            <p className="page-subtitle">Authoritative repository of all active and historical licensing agreements.</p>
-          </div>
-          <div className="mono" style={{ fontSize: '12px', color: 'var(--gold-dim)', marginBottom: '8px' }}>
-            TOTAL RECORDS: {rows.length.toLocaleString()}
-          </div>
+        <div>
+          <h1 className="page-title">Contractual Intelligence Index</h1>
+          <p className="page-subtitle">Authoritative repository of all active and historical licensing agreements.</p>
         </div>
-        <hr className="page-rule" />
-      </header>
-
-      {/* Toolbar */}
-      <div className="toolbar" style={{ marginBottom: '24px', background: 'var(--bg-raised)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-surface)' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-          <input 
-            className="control-input" 
-            placeholder="Search by ID or Studio..." 
-            value={search} 
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
-            style={{ paddingLeft: '36px', width: '100%' }}
-          />
-        </div>
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={14} color="var(--text-tertiary)" />
-            <select className="control-select" value={territory} onChange={(e) => { setTerritory(e.target.value); setPage(1); }}>
-              <option value="all">All Territories</option>
-              {['US', 'CA', 'UK', 'IN', 'DE', 'JP', 'BR', 'AU', 'FR'].map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <select className="control-select" value={studio} onChange={(e) => { setStudio(e.target.value); setPage(1); }}>
-            <option value="all">All Studios</option>
-            {studios.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          <select className="control-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="expired">Expired</option>
-          </select>
-
+        <div className="header-actions">
           <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Download size={14} /> Export Intel
           </button>
+          <button className="btn-primary">Add Contract</button>
+        </div>
+      </header>
+
+      {/* Toolbar / Filters */}
+      <div className="filter-bar">
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
+          <input 
+            className="ghost-input" 
+            placeholder="Search Intelligence..." 
+            value={search} 
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
+            style={{ paddingLeft: '24px', width: '100%' }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', gap: '32px' }}>
+          <select className="ghost-select" value={territory} onChange={(e) => { setTerritory(e.target.value); setPage(1); }}>
+            <option value="all">All Territories</option>
+            {['US', 'CA', 'UK', 'IN', 'DE', 'JP', 'BR', 'AU', 'FR'].map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+
+          <select className="ghost-select" value={studio} onChange={(e) => { setStudio(e.target.value); setPage(1); }}>
+            <option value="all">Studios (All)</option>
+            {studios.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <select className="ghost-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            <option value="all">Status (All)</option>
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+          </select>
         </div>
       </div>
 
@@ -133,7 +126,7 @@ export default function Contracts() {
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        {(r.territory || []).slice(0, 3).map(t => (
+                        {(r.territory || []).slice(0, 3).map((t: string) => (
                           <span key={t} className="badge missing" style={{ fontSize: '10px', padding: '2px 6px' }}>{t}</span>
                         ))}
                         {(r.territory || []).length > 3 && <span className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>+{r.territory.length - 3}</span>}
@@ -265,28 +258,36 @@ export default function Contracts() {
 
               <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '40px' }}>
-                  <div className="metric-card" style={{ padding: '16px' }}>
-                    <div className="metric-label" style={{ fontSize: '10px' }}>ROYALTY RATE</div>
-                    <div className="mono" style={{ fontSize: '20px', color: 'var(--gold-bright)' }}>{typeof selected.royalty_rate === 'number' ? `${(selected.royalty_rate * 100).toFixed(1)}%` : selected.royalty_rate}</div>
+                  <div className="metric-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                    <div className="metric-label" style={{ fontSize: '9px', marginBottom: '8px' }}>ROYALTY RATE</div>
+                    <div className="mono" style={{ fontSize: '24px', color: 'var(--gold-bright)', fontWeight: 800 }}>
+                      {typeof selected.royalty_rate === 'number' ? `${(selected.royalty_rate * 100).toFixed(1)}%` : selected.royalty_rate}
+                    </div>
                   </div>
-                  <div className="metric-card" style={{ padding: '16px' }}>
-                    <div className="metric-label" style={{ fontSize: '10px' }}>BASE RATE / PLAY</div>
-                    <div className="mono" style={{ fontSize: '20px', color: 'var(--cyan-bright)' }}>${selected.rate_per_play}</div>
+                  <div className="metric-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                    <div className="metric-label" style={{ fontSize: '9px', marginBottom: '8px' }}>BASE RATE</div>
+                    <div className="mono" style={{ fontSize: '24px', color: 'var(--cyan-bright)', fontWeight: 800 }}>
+                      ${Number(selected.rate_per_play || 0).toFixed(4)}
+                    </div>
                   </div>
-                  <div className="metric-card" style={{ padding: '16px' }}>
-                    <div className="metric-label" style={{ fontSize: '10px' }}>MIN. GUARANTEE</div>
-                    <div className="mono" style={{ fontSize: '20px', color: 'var(--lime-bright)' }}>${(selected.minimum_guarantees || 0).toLocaleString()}</div>
+                  <div className="metric-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                    <div className="metric-label" style={{ fontSize: '9px', marginBottom: '8px' }}>MIN. GUARANTEE</div>
+                    <div className="mono" style={{ fontSize: '24px', color: 'var(--lime-bright)', fontWeight: 800 }}>
+                      ${(selected.minimum_guarantees || 0).toLocaleString()}
+                    </div>
                   </div>
-                  <div className="metric-card" style={{ padding: '16px' }}>
-                    <div className="metric-label" style={{ fontSize: '10px' }}>TIERED KICKER</div>
-                    <div className="mono" style={{ fontSize: '20px', color: 'var(--text-tertiary)' }}>{selected.tier_rate || 'N/A'}</div>
+                  <div className="metric-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                    <div className="metric-label" style={{ fontSize: '9px', marginBottom: '8px' }}>TERMS</div>
+                    <div className="mono" style={{ fontSize: '18px', color: 'var(--text-tertiary)', fontWeight: 800 }}>
+                      {selected.status === 'expired' ? 'CLOSED' : 'ACTIVE'}
+                    </div>
                   </div>
                 </div>
 
                 <div className="panel" style={{ background: 'var(--bg-void)', marginBottom: '32px' }}>
                   <div className="metric-label" style={{ marginBottom: '16px' }}>Territory Enforcement</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {(selected.territory || []).map((t) => (
+                    {(selected.territory || []).map((t: string) => (
                       <span key={t} className="badge missing" style={{ fontSize: '12px', padding: '6px 12px' }}>{t}</span>
                     ))}
                   </div>
@@ -324,4 +325,3 @@ export default function Contracts() {
     </div>
   );
 }
-

@@ -24,9 +24,8 @@ def parse_date(date_str):
 
 def seed():
     print("[*] Initializing SQLite database...")
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-        print(f"[*] Reset existing SQLite file: {DB_PATH}")
+    # On Windows, we can't delete the file while it's in use by the FastAPI server.
+    # We'll rely on the table truncation below instead.
     init_db()
     db = SessionLocal()
     

@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from .models import Base
+from models import Base
 
 # Database Configuration
 IS_VERCEL = "VERCEL" in os.environ
@@ -34,7 +34,3 @@ def init_db():
     """Initializes the SQLite database with all tables defined in models.py"""
     Base.metadata.create_all(bind=engine)
     print(f"[*] SQLite Database initialized at: {DB_PATH}")
-
-# Legacy support for supabase variable 
-# (we will migrate all usages, but defining a placeholder here to avoid immediate crashes)
-supabase = None 

@@ -45,21 +45,22 @@ export default function App() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: 'var(--bg-elevated)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
             color: 'var(--text-primary)',
             fontFamily: 'var(--font-ui)',
             fontSize: '13px',
-            border: '1px solid var(--gold-dim)',
+            border: '1px solid rgba(184, 134, 11, 0.15)',
             borderRadius: 'var(--radius-sm)',
             padding: '12px 16px',
             maxWidth: '380px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+            boxShadow: '0 8px 24px rgba(0,0,0,0.05)'
           },
           success: {
-            style: { borderLeft: '3px solid var(--cyan-bright)' }
+            style: { borderLeft: '3px solid #2F855A' }
           },
           error: {
-            style: { borderLeft: '3px solid var(--crimson-hot)' }
+            style: { borderLeft: '3px solid #C53030' }
           }
         }}
       />

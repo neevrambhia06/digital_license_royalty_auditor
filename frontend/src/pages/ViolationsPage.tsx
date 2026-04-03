@@ -36,89 +36,94 @@ export default function ViolationsPage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <h1 className="page-title">Compliance & Breach Intelligence</h1>
-            <p className="page-subtitle">Automated detection of licensing violations and royalty leakage.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <ShieldAlert size={16} className="text-crimson" />
-            <span className="mono" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>BREACH_DETECTION_ACTIVE</span>
-          </div>
+        <div>
+          <h1 className="page-title">Compliance & Breach Intelligence</h1>
+          <p className="page-subtitle">Automated detection of licensing violations and royalty leakage.</p>
         </div>
-        <hr className="page-rule" />
+        <div className="header-actions">
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={14} /> Export Findings
+          </button>
+          <button className="btn-primary">Resolve All</button>
+        </div>
       </header>
 
       {/* Violation Stats */}
       <div className="metric-grid">
         <div className="metric-card">
-          <div className="metric-label">
-            <Globe size={12} className="text-cyan" style={{ marginRight: '8px' }} /> Territory Breach
+          <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+            <Globe size={14} className="text-cyan" />
           </div>
-          <div className="metric-value text-cyan" style={{ fontSize: '32px' }}>{stats.territory}</div>
-          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Unlicensed regional playback</div>
+          <span className="metric-label" style={{ marginBottom: '8px' }}>Territory Breach</span>
+          <div className="metric-value text-cyan" style={{ fontSize: '32px', fontWeight: 800 }}>{stats.territory}</div>
+          <div className="mono" style={{ marginTop: '16px', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Unlicensed Playback
+          </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">
-            <Calendar size={12} className="text-gold" style={{ marginRight: '8px' }} /> Term Expiration
+          <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+            <Calendar size={14} className="text-gold" />
           </div>
-          <div className="metric-value text-gold" style={{ fontSize: '32px' }}>{stats.expired}</div>
-          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Active play on dead license</div>
+          <span className="metric-label" style={{ marginBottom: '8px' }}>Term Expiration</span>
+          <div className="metric-value text-gold" style={{ fontSize: '32px', fontWeight: 800 }}>{stats.expired}</div>
+          <div className="mono" style={{ marginTop: '16px', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Dead License Play
+          </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">
-            <ShieldX size={12} className="text-crimson" style={{ marginRight: '8px' }} /> Underpaid Balance
+          <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+            <ShieldX size={14} className="text-crimson" />
           </div>
-          <div className="metric-value text-crimson" style={{ fontSize: '32px' }}>{stats.under}</div>
-          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Confirmed financial leakage</div>
+          <span className="metric-label" style={{ marginBottom: '8px' }}>Underpaid</span>
+          <div className="metric-value text-crimson" style={{ fontSize: '32px', fontWeight: 800 }}>{stats.under}</div>
+          <div className="mono" style={{ marginTop: '16px', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Financial Leakage
+          </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">
-            <Zap size={12} className="text-lime" style={{ marginRight: '8px' }} /> Missing Settlement
+          <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+            <Zap size={14} className="text-lime" />
           </div>
-          <div className="metric-value text-lime" style={{ fontSize: '32px' }}>{stats.missing}</div>
-          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Unreconciled zero-value logs</div>
+          <span className="metric-label" style={{ marginBottom: '8px' }}>Missing Settlement</span>
+          <div className="metric-value text-lime" style={{ fontSize: '32px', fontWeight: 800 }}>{stats.missing}</div>
+          <div className="mono" style={{ marginTop: '16px', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Unreconciled Logs
+          </div>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="toolbar">
-        <div className="pill-row">
-          <button className={`pill ${type === 'all' ? 'active' : ''}`} onClick={() => setType('all')}>ALL BREACHES</button>
-          {types.slice(0, 5).map((t) => (
-            <button key={t} className={`pill ${type === t ? 'active' : ''}`} onClick={() => setType(t)}>
-              {String(t).replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-        
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <select className="control-select" value={severity} onChange={(e) => setSeverity(e.target.value)}>
-            <option value="all">ANY SEVERITY</option>
+      {/* Toolbar / Filters */}
+      <div className="filter-bar">
+        <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flex: 1 }}>
+          <select className="ghost-select" value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="all">Breach Typology (All)</option>
+            {types.map((t) => (
+              <option key={t} value={t}>{String(t).replace('_', ' ')}</option>
+            ))}
+          </select>
+          <select className="ghost-select" value={severity} onChange={(e) => setSeverity(e.target.value)}>
+            <option value="all">Severity Degree (Any)</option>
             {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((s) => (
               <option key={s} value={s.toLowerCase()}>{s}</option>
             ))}
           </select>
-          <div style={{ position: 'relative', width: '240px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+          <div style={{ position: 'relative', width: '320px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
             <input 
-              className="control-input" 
-              placeholder="Filter by description..." 
+              className="ghost-input" 
+              placeholder="Search Intelligence..." 
               value={q} 
               onChange={(e) => setQ(e.target.value)} 
-              style={{ paddingLeft: '36px', width: '100%' }}
+              style={{ paddingLeft: '24px', width: '100%' }}
             />
           </div>
-          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-            <Download size={14} /> EXPORT FINDINGS
-          </button>
         </div>
       </div>
 
       {/* Grid of Intel Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
         <AnimatePresence>
           {filtered.map((v, i) => (
             <motion.div 
@@ -133,10 +138,13 @@ export default function ViolationsPage() {
               onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-surface)'}
               style={{ 
                 border: '1px solid var(--border-surface)',
-                background: 'var(--bg-raised)',
-                padding: '24px',
+                background: 'var(--bg-surface)',
+                padding: '32px',
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                aspectRatio: '1.2 / 1'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

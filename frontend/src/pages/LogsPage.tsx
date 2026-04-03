@@ -98,19 +98,19 @@ export default function LogsPage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <h1 className="page-title">Streaming Telemetry Stream</h1>
-            <p className="page-subtitle">Real-time auditing of global playback events across 10 regions.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--lime-bright)', boxShadow: '0 0 10px var(--lime-bright)' }} />
-            <span className="mono" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>SQLITE_ACTIVE // VER_3.4.0</span>
-          </div>
+        <div>
+          <h1 className="page-title">Streaming Telemetry Stream</h1>
+          <p className="page-subtitle">Real-time auditing of global playback events across 10 regions.</p>
         </div>
-        <hr className="page-rule" />
+        <div className="header-actions">
+          <AgenticToggle value={agg} onChange={(v: boolean) => { setAgg(v); setPage(1); }} label="AGGREGATED" />
+          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={14} /> Export CSV
+          </button>
+          <button className="btn-primary">Connect Live</button>
+        </div>
       </header>
 
       {/* Stats Cluster */}
@@ -137,41 +137,34 @@ export default function LogsPage() {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="toolbar">
-        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+      {/* Toolbar / Filters */}
+      <div className="filter-bar">
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={14} style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', opacity: 0.5 }} />
           <input 
-            className="control-input" 
-            placeholder="Search by Play ID or Asset ID..." 
+            className="ghost-input" 
+            placeholder="Search Telemetry..." 
             value={search} 
             onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
-            style={{ paddingLeft: '36px', width: '100%', background: 'var(--bg-raised)' }}
+            style={{ paddingLeft: '24px', width: '100%' }}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Globe size={14} color="var(--text-tertiary)" />
-            <select className="control-select" value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }}>
-              <option value="all">All Regions</option>
-              {Object.keys(flags).map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+        <div style={{ display: 'flex', gap: '32px' }}>
+          <select className="ghost-select" value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }}>
+            <option value="all">Regions (All)</option>
+            {Object.keys(flags).map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <User size={14} color="var(--text-tertiary)" />
-            <select className="control-select" value={userType} onChange={(e) => { setUserType(e.target.value); setPage(1); }}>
-              <option value="all">All Users</option>
-              {['premium', 'free', 'trial'].map((u) => <option key={u} value={u}>{u.toUpperCase()}</option>)}
-            </select>
-          </div>
+          <select className="ghost-select" value={userType} onChange={(e) => { setUserType(e.target.value); setPage(1); }}>
+            <option value="all">Accounts (All)</option>
+            {['premium', 'free', 'trial'].map((u) => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+          </select>
 
-          <AgenticToggle value={agg} onChange={(v) => { setAgg(v); setPage(1); }} label="AGGREGATED" />
-
-          <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-            <Download size={14} /> EXPORT CSV
-          </button>
+          <select className="ghost-select" value={device} onChange={(e) => { setDevice(e.target.value); setPage(1); }}>
+            <option value="all">Devices (All)</option>
+            {['desktop', 'mobile', 'tv', 'tablet'].map((d) => <option key={d} value={d}>{d.toUpperCase()}</option>)}
+          </select>
         </div>
       </div>
 

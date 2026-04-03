@@ -5,9 +5,9 @@ from typing import List, Optional
 import os
 import shutil
 
-from .database import get_db, init_db
-from .models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
-from .agent_engine import AuditOrchestrator
+from database import get_db, init_db
+from models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
+from agent_engine import AuditOrchestrator
 
 app = FastAPI(title="Digital License Royalty Auditor API")
 
@@ -23,7 +23,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     # Ensure database is in a writable location on Vercel
-    from .database import IS_VERCEL, DB_PATH
+    from database import IS_VERCEL, DB_PATH
     if IS_VERCEL:
         original_db = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
         # Check if we need to copy initial data to /tmp
@@ -46,8 +46,8 @@ async def generate_data_api():
     import subprocess
     import sys
     try:
-        # Run the generate_seed_data.py script
-        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "generate_seed_data.py")
+        # Run the generate_data.py script (consolidated logic)
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "generate_data.py")
         subprocess.run([sys.executable, script_path], check=True)
         return {"status": "success", "message": "Synthetic CSV data generated in /data directory"}
     except Exception as e:
@@ -71,14 +71,18 @@ async def seed_database_api():
 
 @app.post("/api/audit/run")
 async def run_audit(background_tasks: BackgroundTasks):
-    from .database import SessionLocal
+    from database import SessionLocal
     db = SessionLocal()
     try:
         orchestrator = AuditOrchestrator(db)
         # Process in background and return run_id immediately
         def background_audit():
+            nonlocal db
             try:
                 orchestrator.run_full_audit()
+            except Exception as audit_err:
+                print(f"[!] Background Audit Failed: {audit_err}")
+                # We could log this to a special AuditRun table in the future
             finally:
                 db.close()
         
@@ -86,6 +90,7 @@ async def run_audit(background_tasks: BackgroundTasks):
         return {"run_id": orchestrator.run_id, "status": "started"}
     except Exception as e:
         if db: db.close()
+        print(f"[!] Audit API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats")

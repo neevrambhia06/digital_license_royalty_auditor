@@ -7,22 +7,20 @@ export default function Card({ children, className = '', onClick, style = {} }) 
       onClick={onClick}
       className={className}
       whileHover={onClick ? {
-        scale: 1.01,
-        borderColor: 'var(--border-glow)',
-        transition: { duration: 0.15, ease: 'easeOut' }
+        scale: 1.005,
+        borderColor: 'var(--gold-dim)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.04)',
       } : {}}
       style={{
-        background: 'rgba(18, 18, 30, 0.7)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        border: '1px solid rgba(232, 184, 75, 0.12)',
+        background: '#FFFFFF',
+        border: '1px solid rgba(0, 0, 0, 0.06)',
         borderRadius: 'var(--radius-md)',
-        padding: '20px',
+        padding: '24px',
         position: 'relative',
         overflow: 'hidden',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.2s ease',
-        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
         ...style
       }}
     >
