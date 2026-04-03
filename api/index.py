@@ -174,6 +174,33 @@ async def get_stats(db: Session = Depends(get_db)):
 async def get_contracts(db: Session = Depends(get_db), limit: int = 100):
     return db.query(Contract).limit(limit).all()
 
+@app.post("/api/contracts")
+async def add_contract(contract_data: dict, db: Session = Depends(get_db)):
+    try:
+        # Create a new Contract instance from the incoming data
+        new_contract = Contract(
+            contract_id=contract_data.get("contract_id"),
+            content_id=contract_data.get("content_id"),
+            studio=contract_data.get("studio"),
+            royalty_rate=float(contract_data.get("royalty_rate", 0)),
+            rate_per_play=float(contract_data.get("rate_per_play", 0)),
+            territory=contract_data.get("territory", []),
+            start_date=contract_data.get("start_date"),
+            end_date=contract_data.get("end_date"),
+            tier_threshold=int(contract_data.get("tier_threshold", 100000)),
+            tier_rate=float(contract_data.get("tier_rate", 0)),
+            minimum_guarantees=float(contract_data.get("minimum_guarantees", 0)),
+            contract_text=contract_data.get("contract_text", "")
+        )
+        db.add(new_contract)
+        db.commit()
+        db.refresh(new_contract)
+        return {"status": "success", "contract": new_contract}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[!] Error adding contract: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/api/logs")
 async def get_logs(content_id: Optional[str] = None, db: Session = Depends(get_db), limit: int = 100):
     query = db.query(StreamingLog)

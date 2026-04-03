@@ -63,6 +63,17 @@ export const auditService = {
     return response.data;
   },
 
+  addContract: async (contractData: any) => {
+    const response = await api.post('/contracts', contractData);
+    return response.data;
+  },
+
+  syncLedger: async () => {
+    // Re-use current audit engine to simulate a full ledger reconciliation
+    const response = await api.post('/audit/run');
+    return response.data;
+  },
+
   generateData: async () => {
     const response = await api.post('/setup/generate');
     return response.data;

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, AlertTriangle, ShieldAlert, Clock, Info, ShieldX, Globe, Calendar, ArrowRight, Zap, ShieldCheck, Download } from 'lucide-react';
+import { Search, AlertTriangle, ShieldAlert, Clock, Info, ShieldX, Globe, Calendar, ArrowRight, Zap, ShieldCheck, Download, X } from 'lucide-react';
 import { auditService } from '../services/api';
 import { exportToCSV } from '../utils/exportUtils';
 import toast from 'react-hot-toast';
@@ -22,6 +22,8 @@ export default function ViolationsPage() {
     (severity === 'all' || r.severity === severity) &&
     `${r.content_id} ${r.contract_id} ${r.description}`.toLowerCase().includes(q.toLowerCase())
   ), [rows, type, severity, q]);
+
+  const [selected, setSelected] = useState<any>(null);
 
   const stats = useMemo(() => ({
     territory: rows.filter((r) => String(r.violation_type).includes('TERRITORY')).length,
@@ -123,7 +125,7 @@ export default function ViolationsPage() {
       </div>
 
       {/* Grid of Intel Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '24px' }}>
         <AnimatePresence>
           {filtered.map((v, i) => (
             <motion.div 
@@ -143,9 +145,9 @@ export default function ViolationsPage() {
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex',
-                flexDirection: 'column',
-                aspectRatio: '1.2 / 1'
+                flexDirection: 'column'
               }}
+              onClick={() => setSelected(v)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <span className={`badge ${String(v.violation_type || '').toLowerCase()}`} style={{ fontSize: '10px', padding: '4px 10px' }}>
@@ -192,7 +194,7 @@ export default function ViolationsPage() {
                 <button 
                   className="btn-secondary" 
                   style={{ fontSize: '10px', padding: '6px 12px', borderColor: 'var(--gold-dim)' }}
-                  onClick={() => toast.success(`Intelligence report for ${v.violation_id.slice(0, 8)} opened.`)}
+                  onClick={(e) => { e.stopPropagation(); setSelected(v); }}
                 >
                   Inspect Incident
                 </button>
@@ -213,6 +215,98 @@ export default function ViolationsPage() {
           <p className="page-subtitle">No compliance breaches detected for the selected filters.</p>
         </div>
       )}
+
+      {/* Detail Sidebar */}
+      <AnimatePresence>
+        {selected && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setSelected(null)} 
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }} 
+            />
+            <motion.aside 
+              initial={{ x: 600, opacity: 0 }} 
+              animate={{ x: 0, opacity: 1 }} 
+              exit={{ x: 600, opacity: 0 }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="panel"
+              style={{ 
+                position: 'fixed', 
+                top: 0, 
+                right: 0, 
+                bottom: 0, 
+                width: '560px', 
+                zIndex: 101, 
+                borderRadius: 0, 
+                margin: 0,
+                borderLeft: '1px solid var(--gold-dim)',
+                background: 'var(--bg-surface)',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: 0,
+                boxShadow: '-20px 0 60px rgba(0,0,0,0.5)'
+              }}
+            >
+              <div style={{ padding: '32px', borderBottom: '1px solid var(--border-surface)', background: 'var(--bg-raised)' }}>
+                <button className="btn-secondary" onClick={() => setSelected(null)} style={{ float: 'right', padding: '8px' }}><X size={16} /></button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <ShieldAlert size={20} className="text-crimson" />
+                  <span className="metric-label" style={{ margin: 0, fontSize: '11px' }}>COMPLIANCE INCIDENT REPORT</span>
+                </div>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '28px', color: 'var(--text-primary)', margin: '0 0 4px', lineHeight: 1.2 }}>{selected.violation_type?.replace('_', ' ')}</h2>
+                <div className="mono" style={{ color: 'var(--crimson-mid)', fontSize: '14px' }}>{selected.violation_id}</div>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+                <div className="metric-card" style={{ marginBottom: '32px', borderLeft: '4px solid var(--crimson-mid)' }}>
+                  <div className="metric-label">Detection Log</div>
+                  <p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{selected.description}</p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
+                  <div className="panel" style={{ padding: '20px', background: 'var(--bg-void)' }}>
+                    <div className="metric-label" style={{ fontSize: '9px' }}>SEVERITY</div>
+                    <div className={`mono ${selected.severity}-severity`} style={{ fontSize: '18px', fontWeight: 800 }}>{selected.severity?.toUpperCase()}</div>
+                  </div>
+                  <div className="panel" style={{ padding: '20px', background: 'var(--bg-void)' }}>
+                    <div className="metric-label" style={{ fontSize: '9px' }}>DETECTED AT</div>
+                    <div className="mono" style={{ fontSize: '14px' }}>{new Date(selected.detected_at).toLocaleDateString()}</div>
+                  </div>
+                </div>
+
+                <div className="panel" style={{ background: 'var(--bg-void)', marginBottom: '32px' }}>
+                  <div className="metric-label" style={{ marginBottom: '16px' }}>Impacted Entities</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="metric-label" style={{ fontSize: '10px' }}>CONTENT ID</span>
+                      <span className="mono text-gold">{selected.content_id}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="metric-label" style={{ fontSize: '10px' }}>CONTRACT ID</span>
+                      <span className="mono text-cyan">{selected.contract_id}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="panel" style={{ border: '1px dashed var(--gold-dim)', background: 'rgba(255,215,0,0.02)' }}>
+                  <div className="metric-label" style={{ color: 'var(--gold-bright)' }}>Recommended Remediation</div>
+                  <p style={{ fontSize: '13px', lineHeight: 1.6, marginTop: '8px' }}>
+                    Agentic analysis recommends immediate suspension of content distribution in the flagged region and a back-audit of all royalty settlements for the past 90 days.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ padding: '24px 32px', borderTop: '1px solid var(--border-surface)', background: 'var(--bg-raised)', display: 'flex', gap: '12px' }}>
+                 <button className="btn-secondary" style={{ flex: 1 }}>Ignore</button>
+                 <button className="btn-primary" style={{ flex: 1 }} onClick={() => toast.success('Remediation workflow initiated.')}>Initiate Resolve</button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

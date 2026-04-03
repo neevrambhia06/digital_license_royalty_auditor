@@ -13,10 +13,46 @@ export default function Contracts() {
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newContract, setNewContract] = useState({
+    contract_id: `CT-${Math.floor(Math.random()*9000)+1000}`,
+    content_id: 'CID-000',
+    studio: '',
+    royalty_rate: 0.15,
+    rate_per_play: 0.0045,
+    territory: 'US, CA, UK',
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: new Date(Date.now() + 31536000000).toISOString().slice(0, 10),
+    tier_threshold: 100000,
+    tier_rate: 0.0065,
+    minimum_guarantees: 5000,
+    contract_text: ''
+  });
+
+  const refreshContracts = () => {
+    auditService.getContracts(1000).then(setRows);
+  };
 
   useEffect(() => { 
-    auditService.getContracts(1000).then(setRows); 
+    refreshContracts(); 
   }, []);
+
+  const handleAddContract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const loadId = toast.loading('Registering contract on-chain...');
+    try {
+      const payload = {
+        ...newContract,
+        territory: newContract.territory.split(',').map(s => s.trim()).filter(Boolean)
+      };
+      await auditService.addContract(payload);
+      toast.success('Contract Intelligence Synchronized', { id: loadId });
+      setIsAdding(false);
+      refreshContracts();
+    } catch (err) {
+      toast.error('Failed to register contract', { id: loadId });
+    }
+  };
 
   const studios = useMemo(() => Array.from(new Set(rows.map((r) => r.studio))), [rows]);
   
@@ -50,7 +86,7 @@ export default function Contracts() {
           <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Download size={14} /> Export Intel
           </button>
-          <button className="btn-primary">Add Contract</button>
+          <button className="btn-primary" onClick={() => setIsAdding(true)}>Add Contract</button>
         </div>
       </header>
 
@@ -211,6 +247,70 @@ export default function Contracts() {
           </button>
         </div>
       </div>
+
+      {/* Add Contract Modal */}
+      <AnimatePresence>
+        {isAdding && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsAdding(false)} 
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }} 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }} 
+              className="panel"
+              style={{ 
+                position: 'fixed', 
+                top: '50%', 
+                left: '50%', 
+                transform: 'translate(-50%, -50%)', 
+                width: '600px', 
+                zIndex: 101, 
+                padding: '40px',
+                border: '1px solid var(--gold-dim)',
+                background: 'var(--bg-surface)'
+              }}
+            >
+              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', color: 'var(--text-primary)', marginBottom: '24px' }}>Register New Intelligence</h2>
+              <form onSubmit={handleAddContract} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>STUDIO NAME</label>
+                  <input className="ghost-input" required value={newContract.studio} onChange={e => setNewContract({...newContract, studio: e.target.value})} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>CONTRACT ID</label>
+                  <input className="ghost-input" required value={newContract.contract_id} onChange={e => setNewContract({...newContract, contract_id: e.target.value})} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>CONTENT ID</label>
+                  <input className="ghost-input" required value={newContract.content_id} onChange={e => setNewContract({...newContract, content_id: e.target.value})} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>ROYALTY RATE (%)</label>
+                  <input className="ghost-input" type="number" step="0.01" required value={newContract.royalty_rate} onChange={e => setNewContract({...newContract, royalty_rate: parseFloat(e.target.value)})} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>BASE RATE ($/PLAY)</label>
+                  <input className="ghost-input" type="number" step="0.0001" required value={newContract.rate_per_play} onChange={e => setNewContract({...newContract, rate_per_play: parseFloat(e.target.value)})} style={{ width: '100%' }} />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="metric-label" style={{ fontSize: '10px' }}>ENFORCED TERRITORIES (COMMA SEPARATED)</label>
+                  <input className="ghost-input" required value={newContract.territory} onChange={e => setNewContract({...newContract, territory: e.target.value})} style={{ width: '100%' }} />
+                </div>
+                <div style={{ gridColumn: 'span 2', marginTop: '20px', display: 'flex', gap: '12px' }}>
+                  <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => setIsAdding(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary" style={{ flex: 1 }}>Register Contract</button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Detail Sidebar */}
       <AnimatePresence>

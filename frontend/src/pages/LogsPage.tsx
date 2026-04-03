@@ -51,10 +51,34 @@ export default function LogsPage() {
   const [userType, setUserType] = useState('all');
   const [device, setDevice] = useState('all');
   const [page, setPage] = useState(1);
+  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => { 
     auditService.getLogs(5000).then(setLogs); 
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (isLive) {
+      toast.success('Establishing secure telemetry tunnel...');
+      interval = setInterval(() => {
+        // Fetch new logs or just simulate data arrival
+        auditService.getLogs(20).then(newLogs => {
+          setLogs(prev => [...newLogs, ...prev.slice(0, 4980)]);
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [isLive]);
+
+  const handleConnectLive = () => {
+    setIsLive(!isLive);
+    if (!isLive) {
+      toast('Live Stream Initiated', { icon: '📡', style: { background: 'var(--bg-raised)', color: 'var(--gold-bright)', border: '1px solid var(--gold-dim)' } });
+    } else {
+      toast.error('Live Stream Terminated');
+    }
+  };
 
   const filtered = useMemo(() => logs.filter((l) => {
     const q = search.toLowerCase();
@@ -101,7 +125,19 @@ export default function LogsPage() {
     <div className="page-container" style={{ padding: 'var(--sp-8) 0' }}>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Streaming Telemetry Stream</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title">Streaming Telemetry Stream</h1>
+            {isLive && (
+              <motion.span 
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="badge missing" 
+                style={{ background: 'var(--crimson-mid)', color: 'white', border: 'none', fontSize: '10px' }}
+              >
+                LIVE
+              </motion.span>
+            )}
+          </div>
           <p className="page-subtitle">Real-time auditing of global playback events across 10 regions.</p>
         </div>
         <div className="header-actions">
@@ -109,7 +145,13 @@ export default function LogsPage() {
           <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Download size={14} /> Export CSV
           </button>
-          <button className="btn-primary">Connect Live</button>
+          <button 
+            className={isLive ? "btn-secondary" : "btn-primary"} 
+            onClick={handleConnectLive}
+            style={isLive ? { borderColor: 'var(--crimson-mid)', color: 'var(--crimson-mid)' } : {}}
+          >
+            {isLive ? 'Disconnect' : 'Connect Live'}
+          </button>
         </div>
       </header>
 

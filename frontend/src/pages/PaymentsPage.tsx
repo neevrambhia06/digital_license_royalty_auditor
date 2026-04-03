@@ -13,14 +13,33 @@ export default function PaymentsPage() {
   const [maxAmt, setMaxAmt] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => { 
+  const refreshPayments = () => {
     setLoading(true);
     auditService.getPayments().then((d) => {
       setRows(d || []);
       setLoading(false);
-    }); 
+    });
+  };
+
+  useEffect(() => { 
+    refreshPayments(); 
   }, []);
+
+  const handleSyncLedger = async () => {
+    setIsSyncing(true);
+    const loadId = toast.loading('Synchronizing immutable ledger...');
+    try {
+      await auditService.syncLedger();
+      refreshPayments();
+      toast.success('Financial Records Synchronized', { id: loadId });
+    } catch (err) {
+      toast.error('Ledger synchronization failed', { id: loadId });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const filtered = useMemo(() => rows.filter((r: any) => {
     const q = !search || `${r.payment_id} ${r.content_id} ${r.contract_id}`.toLowerCase().includes(search.toLowerCase());
@@ -62,7 +81,9 @@ export default function PaymentsPage() {
           <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Download size={14} /> Export CSV
           </button>
-          <button className="btn-primary">Sync Ledger</button>
+          <button className="btn-primary" onClick={handleSyncLedger} disabled={isSyncing}>
+            {isSyncing ? 'Syncing...' : 'Sync Ledger'}
+          </button>
         </div>
       </header>
 
