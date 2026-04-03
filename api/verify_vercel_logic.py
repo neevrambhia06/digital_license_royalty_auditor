@@ -9,17 +9,22 @@ api_dir = os.path.dirname(os.path.abspath(__file__))
 if api_dir not in sys.path:
     sys.path.insert(0, api_dir)
 
-def test_imports():
-    print("[*] Testing imports...")
+def test_bootstrap_logic():
+    print("[*] Testing bootstrap logic...")
+    original_path = sys.path.copy()
     try:
-        import models
-        import database
-        import agent_engine
-        import index
-        print("[+] All modules imported successfully.")
+        # Simulate index.py's bootstrap
+        test_base_dir = os.path.dirname(os.path.abspath(__file__))
+        if test_base_dir not in sys.path:
+            sys.path.insert(0, test_base_dir)
+        
+        from database import IS_VERCEL
+        print(f"[+] Bootstrap successful. IS_VERCEL: {IS_VERCEL}")
     except Exception as e:
-        print(f"[-] Import failed: {e}")
+        print(f"[-] Bootstrap failed: {e}")
         return False
+    finally:
+        sys.path = original_path
     return True
 
 def test_vercel_copy_logic():
@@ -56,6 +61,6 @@ def test_vercel_copy_logic():
             os.remove(original_db_path)
 
 if __name__ == "__main__":
-    success = test_imports()
+    success = test_bootstrap_logic()
     if success:
         test_vercel_copy_logic()

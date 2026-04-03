@@ -1,15 +1,31 @@
+import os
+import sys
+import logging
+
+# --- Vercel Bootstrap Logic ---
+# Ensure the 'api' directory is in the sys.path so local imports work correctly
+# regardless of where Vercel's runtime starts the script.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import os
 import shutil
-import logging
 from contextlib import asynccontextmanager
 
-from database import get_db, init_db, IS_VERCEL, DB_PATH
-from models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
-from agent_engine import AuditOrchestrator
+# Local imports (using the bootstrapped path)
+try:
+    from database import get_db, init_db, IS_VERCEL, DB_PATH
+    from models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
+    from agent_engine import AuditOrchestrator
+except ImportError as e:
+    # If imports fail during cold-start, Vercel will show Internal Server Error.
+    # This logging will help identify which module is missing.
+    logging.error(f"[!] Bootstrapping Error (Import): {str(e)}")
+    raise
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -20,14 +36,12 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     logger.info("[*] Application startup sequence initiated.")
     
-    # Ensure database is in a writable location on Vercel
-    if IS_VERCEL:
-        original_db = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
-        try:
+    try:
+        # Ensure database is in a writable location on Vercel
+        if IS_VERCEL:
+            original_db = os.path.join(BASE_DIR, "dlra_audit.db")
             # Check if we need to copy initial data to /tmp
             if os.path.exists(original_db):
-                # Always copy if it doesn't exist, or if we want to ensure fresh data in /tmp
-                # Vercel functions can be reused, so /tmp might persist for a short while.
                 if not os.path.exists(DB_PATH):
                     logger.info(f"[*] Vercel detected: Copying bundled DB ({os.path.getsize(original_db)} bytes) to {DB_PATH}")
                     shutil.copy2(original_db, DB_PATH)
@@ -36,17 +50,15 @@ async def lifespan(app: FastAPI):
                     logger.info(f"[*] Database already exists at {DB_PATH}, skipping copy.")
             else:
                 logger.warning(f"[!] Warning: Bundled database not found at {original_db}")
-        except Exception as e:
-            logger.error(f"[!] Critical error during DB copy to /tmp: {str(e)}")
-            # Do not raise here, let init_db try to create a new one, 
-            # though it might fail if /tmp is somehow weird.
-    
+    except Exception as e:
+        logger.error(f"[!] Critical error during DB copy to /tmp: {str(e)}")
+
     # Ensure tables exist on startup
     try:
         init_db()
     except Exception as e:
         logger.error(f"[!] init_db failed: {str(e)}")
-        # On Vercel, a startup crash will cause FUNCTION_INVOCATION_FAILED
+        # This is where a crash would cause FUNCTION_INVOCATION_FAILED
 
     yield
     # --- Shutdown ---
@@ -74,7 +86,8 @@ async def health_check():
         "database": "sqlite", 
         "is_vercel": IS_VERCEL,
         "db_path": DB_PATH,
-        "db_exists": os.path.exists(DB_PATH),
+        "db_exists": os.path.exists(DB_PATH) if DB_PATH else False,
+        "base_dir": BASE_DIR,
         "message": "Backend is running"
     }
 
@@ -84,7 +97,7 @@ async def generate_data_api():
     import sys
     try:
         # Run the generate_data.py script (consolidated logic)
-        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "generate_data.py")
+        script_path = os.path.join(os.path.dirname(BASE_DIR), "generate_data.py")
         subprocess.run([sys.executable, script_path], check=True)
         return {"status": "success", "message": "Synthetic CSV data generated in /data directory"}
     except Exception as e:
@@ -96,7 +109,7 @@ async def seed_database_api():
     import sys
     try:
         # Run the api/seed_sqlite.py script
-        script_path = os.path.join(os.path.dirname(__file__), "seed_sqlite.py")
+        script_path = os.path.join(BASE_DIR, "seed_sqlite.py")
         subprocess.run([sys.executable, script_path], check=True)
         return {"status": "success", "message": "SQLite database seeded from /data/*.csv"}
     except Exception as e:
