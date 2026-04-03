@@ -29,7 +29,7 @@ const COLORS = {
   gold: '#E8B84B',
   crimson: '#FF2952',
   cyan: '#00E5D4',
-  lime: '#A8FF3E',
+  lime: '#1A7A3A',
   goldMid: '#C49A2A',
   crimsonMid: '#CC1F40',
   cyanMid: '#00B5A6',

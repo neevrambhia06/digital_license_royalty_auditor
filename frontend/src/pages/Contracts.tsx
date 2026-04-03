@@ -251,26 +251,21 @@ export default function Contracts() {
       {/* Add Contract Modal */}
       <AnimatePresence>
         {isAdding && (
-          <>
-            <motion.div 
+          <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setIsAdding(false)} 
-              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 1100 }} 
-            />
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+            >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} 
               animate={{ scale: 1, opacity: 1 }} 
               exit={{ scale: 0.9, opacity: 0 }} 
               className="panel"
+              onClick={(e) => e.stopPropagation()}
               style={{ 
-                position: 'fixed', 
-                top: '50%', 
-                left: '50%', 
-                transform: 'translate(-50%, -50%)', 
                 width: '600px', 
-                zIndex: 1101, 
                 padding: '40px',
                 border: '1px solid var(--gold-dim)',
                 background: 'var(--bg-surface)'
@@ -308,7 +303,7 @@ export default function Contracts() {
                 </div>
               </form>
             </motion.div>
-          </>
+            </motion.div>
         )}
       </AnimatePresence>
 
