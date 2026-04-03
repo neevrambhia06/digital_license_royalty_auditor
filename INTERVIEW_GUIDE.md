@@ -1,11 +1,11 @@
-# 🎓 DLRA Interview Strategy Guide
+# DLRA Interview Strategy Guide
 
 This guide is designed to help you "wow" your interviewer by highlighting the technical depth and business value of the Digital License Royalty Auditor.
 
 ---
 
 ## 1. The "Elevator Pitch" (30 Seconds)
-> "I built a full-stack **Digital License Royalty Auditor** that identifies financial leakage for streaming platforms. It uses a **Multi-Agent Engine** in Python to cross-reference millions of raw streaming logs against complex, tiered royalty contracts. It doesn't just filter data; it simulates specialized audit agents to detect underpayments, territorial breaches, and expired licenses, providing a sub-second response on over 100,000 records."
+"I built a full-stack **Digital License Royalty Auditor** that identifies financial leakage for streaming platforms. It uses a **Multi-Agent Engine** in Python to cross-reference millions of raw streaming logs against complex, tiered royalty contracts. It doesn't just filter data; it simulates specialized audit agents to detect underpayments, territorial breaches, and expired licenses, providing a sub-second response on over 100,000 records."
 
 ---
 
@@ -45,4 +45,4 @@ This guide is designed to help you "wow" your interviewer by highlighting the te
     *   *Answer:* "I implemented a tiered calculation logic in the `RoyaltyAgent` that handles 'Blended Rates'—meaning it correctly calculates different rates for plays above and below a certain threshold, exactly as a real legal contract would specify."
 
 ---
-*Good luck with the interview! You've built a professional-grade tool.*
+*Built with precision for the 2026 Engineering Cohort - Cognify Labs.*

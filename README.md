@@ -2,11 +2,11 @@
 
 **A high-fidelity Audit Intelligence platform for detecting streaming royalty leakage at scale.**
 
-Digital License Royalty Auditor (DLRA) is a full-stack application designed to solve the "Financial Leakage" problem in digital media. By cross-referencing multi-million record telemetry streams (100k+ logs) against complex, tiered royalty contracts, it identifies precisely where revenue is lost due to misapplied terms, expired licenses, or territorial violations.
+Digital License Royalty Auditor (DLRA) is a full-stack application designed to solve the "Financial Leakage" problem in digital media. By cross-references multi-million record telemetry streams (100k+ logs) against complex, tiered royalty contracts, it identifies precisely where revenue is lost due to misapplied terms, expired licenses, or territorial violations.
 
 ---
 
-## 🏗️ Architecture: The Agentic Core
+## Architecture: The Agentic Core
 
 Unlike a simple filter, DLRA uses a **Multi-Agent Audit Engine** in Python. The `AuditOrchestrator` simulates a pipeline of specialized agents:
 
@@ -24,7 +24,7 @@ Unlike a simple filter, DLRA uses a **Multi-Agent Audit Engine** in Python. The 
 
 ---
 
-## 🚀 Quick Setup (Zero-Config)
+## Quick Setup (Zero-Config)
 
 ### 1. Data Intelligence Setup
 Generate the 100k+ record synthetic dataset and seed the SQLite database:
@@ -53,10 +53,10 @@ npm run dev
 
 ---
 
-## 🏆 Internship Demo Strategy
+## Internship Demo Strategy
 
 For a complete walkthrough of how to pitch this project in an interview, refer to the:
-👉 [**INTERVIEW_GUIDE.md**](file:///d:/Projects/Cognify/digital_license_royalty_auditor/INTERVIEW_GUIDE.md)
+[**INTERVIEW_GUIDE.md**](file:///d:/Projects/Cognify/digital_license_royalty_auditor/INTERVIEW_GUIDE.md)
 
 ---
 

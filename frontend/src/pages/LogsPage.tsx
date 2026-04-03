@@ -5,7 +5,7 @@ import { auditService } from '../services/api';
 import { exportToCSV } from '../utils/exportUtils';
 import toast from 'react-hot-toast';
 
-const flags: Record<string, string> = { US: '🇺🇸', CA: '🇨🇦', UK: '🇬🇧', IN: '🇮🇳', DE: '🇩🇪', JP: '🇯🇵', BR: '🇧🇷', AU: '🇦🇺', FR: '🇫🇷' };
+const flags: Record<string, string> = { US: 'US', CA: 'CA', UK: 'UK', IN: 'IN', DE: 'DE', JP: 'JP', BR: 'BR', AU: 'AU', FR: 'FR' };
 const iconByDevice: Record<string, React.ReactNode> = { desktop: <Monitor size={14} />, mobile: <Smartphone size={14} />, tv: <Tv size={14} />, tablet: <Tablet size={14} /> };
 
 function AgenticToggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -74,7 +74,7 @@ export default function LogsPage() {
   const handleConnectLive = () => {
     setIsLive(!isLive);
     if (!isLive) {
-      toast('Live Stream Initiated', { icon: '📡', style: { background: 'var(--bg-raised)', color: 'var(--gold-bright)', border: '1px solid var(--gold-dim)' } });
+      toast('Live Stream Initiated', { style: { background: 'var(--bg-raised)', color: 'var(--gold-bright)', border: '1px solid var(--gold-dim)' } });
     } else {
       toast.error('Live Stream Terminated');
     }
@@ -169,7 +169,7 @@ export default function LogsPage() {
         </div>
         <div className="metric-card">
           <div className="metric-label">Dominant Region</div>
-          <div className="metric-value text-gold" style={{ fontSize: '32px' }}>{flags[stats.mostCountry] || ''} {stats.mostCountry}</div>
+          <div className="metric-value text-gold" style={{ fontSize: '32px' }}>{stats.mostCountry}</div>
           <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Highest traffic density</div>
         </div>
         <div className="metric-card">
@@ -260,7 +260,7 @@ export default function LogsPage() {
                       <td style={{ padding: '16px 24px' }}>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           {r.countries.split(', ').slice(0, 5).map((c: string) => (
-                            <span key={c} style={{ fontSize: '12px' }}>{flags[c] || c}</span>
+                            <span key={c} style={{ fontSize: '10px' }} className="mono">{c}</span>
                           ))}
                           {r.countries.split(', ').length > 5 && <span className="mono" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>+more</span>}
                         </div>
@@ -276,7 +276,6 @@ export default function LogsPage() {
                       </td>
                       <td style={{ padding: '12px 24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span>{flags[r.country]}</span>
                           <span className="mono" style={{ fontSize: '12px' }}>{r.country}</span>
                         </div>
                       </td>
