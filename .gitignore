@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+.npm/
+
+# Build outputs
+dist/
+build/
+.vercel/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Database
+api/*.db
+api/*.db-journal
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
