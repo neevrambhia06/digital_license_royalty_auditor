@@ -257,7 +257,7 @@ export default function Contracts() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setIsAdding(false)} 
-              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }} 
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 1100 }} 
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} 
@@ -270,7 +270,7 @@ export default function Contracts() {
                 left: '50%', 
                 transform: 'translate(-50%, -50%)', 
                 width: '600px', 
-                zIndex: 101, 
+                zIndex: 1101, 
                 padding: '40px',
                 border: '1px solid var(--gold-dim)',
                 background: 'var(--bg-surface)'
@@ -321,7 +321,7 @@ export default function Contracts() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setSelected(null)} 
-              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }} 
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 1100 }} 
             />
             <motion.aside 
               initial={{ x: 600, opacity: 0 }} 
@@ -335,7 +335,7 @@ export default function Contracts() {
                 right: 0, 
                 bottom: 0, 
                 width: '560px', 
-                zIndex: 101, 
+                zIndex: 1101, 
                 borderRadius: 0, 
                 margin: 0,
                 borderLeft: '1px solid var(--gold-dim)',

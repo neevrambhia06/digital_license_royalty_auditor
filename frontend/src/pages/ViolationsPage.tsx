@@ -225,7 +225,7 @@ export default function ViolationsPage() {
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
               onClick={() => setSelected(null)} 
-              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }} 
+              style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 1100 }} 
             />
             <motion.aside 
               initial={{ x: 600, opacity: 0 }} 
@@ -239,7 +239,7 @@ export default function ViolationsPage() {
                 right: 0, 
                 bottom: 0, 
                 width: '560px', 
-                zIndex: 101, 
+                zIndex: 1101, 
                 borderRadius: 0, 
                 margin: 0,
                 borderLeft: '1px solid var(--gold-dim)',
@@ -256,7 +256,7 @@ export default function ViolationsPage() {
                   <ShieldAlert size={20} className="text-crimson" />
                   <span className="metric-label" style={{ margin: 0, fontSize: '11px' }}>COMPLIANCE INCIDENT REPORT</span>
                 </div>
-                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '28px', color: 'var(--text-primary)', margin: '0 0 4px', lineHeight: 1.2 }}>{selected.violation_type?.replace('_', ' ')}</h2>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '28px', color: 'var(--text-primary)', margin: '0 0 4px', lineHeight: 1.2 }}>{selected.violation_type?.replaceAll('_', ' ')}</h2>
                 <div className="mono" style={{ color: 'var(--crimson-mid)', fontSize: '14px' }}>{selected.violation_id}</div>
               </div>
 

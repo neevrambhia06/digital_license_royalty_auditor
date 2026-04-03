@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Cell } from 'recharts';
 import { auditService } from '../services/api';
-import { AlertTriangle, FileText, Activity, Clock, ChevronRight, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, FileText, Activity, Clock, ChevronRight, ShieldCheck, Download } from 'lucide-react';
 import ContractDetailPanel from '../components/ContractDetailPanel';
+import { exportToCSV } from '../utils/exportUtils';
+import toast from 'react-hot-toast';
 
 function CountUp({ value, prefix = '', suffix = '' }: { value: number; prefix?: string; suffix?: string }) {
   const [display, setDisplay] = useState(0);
@@ -169,7 +171,26 @@ export default function DashboardPage() {
         </div>
         <div className="header-actions">
           <button className="btn-secondary" onClick={loadData}>Refresh Data</button>
-          <button className="btn-primary">Export Report</button>
+          <button className="btn-primary" onClick={() => {
+            const reportData = audits.map((a: any) => ({
+              content_id: a.content_id,
+              contract_id: a.contract_id,
+              studio: a.studio,
+              expected_payment: a.expected_payment,
+              actual_payment: a.actual_payment,
+              difference: a.difference,
+              violation_type: a.violation_type,
+              audited_at: a.audited_at,
+            }));
+            if (!reportData.length) {
+              toast.error('No audit data available to export');
+              return;
+            }
+            exportToCSV(reportData, `DLRA_Executive_Report_${new Date().toISOString().slice(0, 10)}`);
+            toast.success('Executive report exported to CSV');
+          }} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={14} /> Export Report
+          </button>
         </div>
       </header>
 
