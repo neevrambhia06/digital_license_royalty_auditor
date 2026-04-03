@@ -4,12 +4,58 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
 import shutil
+import logging
+from contextlib import asynccontextmanager
 
-from database import get_db, init_db
+from database import get_db, init_db, IS_VERCEL, DB_PATH
 from models import Contract, StreamingLog, PaymentLedger, AuditResult, Violation, AgentTrace
 from agent_engine import AuditOrchestrator
 
-app = FastAPI(title="Digital License Royalty Auditor API")
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    logger.info("[*] Application startup sequence initiated.")
+    
+    # Ensure database is in a writable location on Vercel
+    if IS_VERCEL:
+        original_db = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
+        try:
+            # Check if we need to copy initial data to /tmp
+            if os.path.exists(original_db):
+                # Always copy if it doesn't exist, or if we want to ensure fresh data in /tmp
+                # Vercel functions can be reused, so /tmp might persist for a short while.
+                if not os.path.exists(DB_PATH):
+                    logger.info(f"[*] Vercel detected: Copying bundled DB ({os.path.getsize(original_db)} bytes) to {DB_PATH}")
+                    shutil.copy2(original_db, DB_PATH)
+                    logger.info("[*] Copy completed successfully.")
+                else:
+                    logger.info(f"[*] Database already exists at {DB_PATH}, skipping copy.")
+            else:
+                logger.warning(f"[!] Warning: Bundled database not found at {original_db}")
+        except Exception as e:
+            logger.error(f"[!] Critical error during DB copy to /tmp: {str(e)}")
+            # Do not raise here, let init_db try to create a new one, 
+            # though it might fail if /tmp is somehow weird.
+    
+    # Ensure tables exist on startup
+    try:
+        init_db()
+    except Exception as e:
+        logger.error(f"[!] init_db failed: {str(e)}")
+        # On Vercel, a startup crash will cause FUNCTION_INVOCATION_FAILED
+
+    yield
+    # --- Shutdown ---
+    logger.info("[*] Application shutdown sequence initiated.")
+
+app = FastAPI(
+    title="Digital License Royalty Auditor API",
+    lifespan=lifespan
+)
 
 # Update CORS for production and Vercel
 app.add_middleware(
@@ -20,26 +66,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def startup_event():
-    # Ensure database is in a writable location on Vercel
-    from database import IS_VERCEL, DB_PATH
-    if IS_VERCEL:
-        original_db = os.path.join(os.path.dirname(__file__), "dlra_audit.db")
-        # Check if we need to copy initial data to /tmp
-        if os.path.exists(original_db) and not os.path.exists(DB_PATH):
-            print(f"[*] Vercel detected: Copying bundled DB to {DB_PATH}")
-            shutil.copy2(original_db, DB_PATH)
-        elif not os.path.exists(original_db):
-            print("[!] Warning: Bundled database not found in api/dlra_audit.db")
-
-    # Ensure tables exist on startup
-    init_db()
-
 @app.get("/api/health")
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "database": "sqlite", "message": "Backend is running on Vercel"}
+    return {
+        "status": "ok", 
+        "database": "sqlite", 
+        "is_vercel": IS_VERCEL,
+        "db_path": DB_PATH,
+        "db_exists": os.path.exists(DB_PATH),
+        "message": "Backend is running"
+    }
 
 @app.post("/api/setup/generate")
 async def generate_data_api():
@@ -81,8 +118,7 @@ async def run_audit(background_tasks: BackgroundTasks):
             try:
                 orchestrator.run_full_audit()
             except Exception as audit_err:
-                print(f"[!] Background Audit Failed: {audit_err}")
-                # We could log this to a special AuditRun table in the future
+                logger.error(f"[!] Background Audit Failed: {audit_err}")
             finally:
                 db.close()
         
@@ -90,29 +126,32 @@ async def run_audit(background_tasks: BackgroundTasks):
         return {"run_id": orchestrator.run_id, "status": "started"}
     except Exception as e:
         if db: db.close()
-        print(f"[!] Audit API Error: {str(e)}")
+        logger.error(f"[!] Audit API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats")
 async def get_stats(db: Session = Depends(get_db)):
-    total_contracts = db.query(Contract).count()
-    total_logs = db.query(StreamingLog).count()
-    total_audits = db.query(AuditResult).count()
-    total_violations = db.query(Violation).count()
-    
-    # Calculate Total Leakage
-    from sqlalchemy import func
-    leakage = db.query(func.sum(AuditResult.difference)).filter(AuditResult.difference > 0).scalar() or 0
-    overpayment = db.query(func.sum(AuditResult.difference)).filter(AuditResult.difference < 0).scalar() or 0
-    
-    return {
-        "contracts": total_contracts,
-        "logs": total_logs,
-        "audits": total_audits,
-        "violations": total_violations,
-        "leakage": round(float(leakage), 2),
-        "overpayment": round(abs(float(overpayment)), 2)
-    }
+    try:
+        total_contracts = db.query(Contract).count()
+        total_logs = db.query(StreamingLog).count()
+        total_audits = db.query(AuditResult).count()
+        total_violations = db.query(Violation).count()
+        
+        from sqlalchemy import func
+        leakage = db.query(func.sum(AuditResult.difference)).filter(AuditResult.difference > 0).scalar() or 0
+        overpayment = db.query(func.sum(AuditResult.difference)).filter(AuditResult.difference < 0).scalar() or 0
+        
+        return {
+            "contracts": total_contracts,
+            "logs": total_logs,
+            "audits": total_audits,
+            "violations": total_violations,
+            "leakage": round(float(leakage), 2),
+            "overpayment": round(abs(float(overpayment)), 2)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}")
+        raise HTTPException(status_code=500, detail="Database access error")
 
 # ─────────────────────────────────────────────
 # Data Fetching Endpoints
@@ -144,7 +183,6 @@ async def get_audit_results(content_id: Optional[str] = None, db: Session = Depe
         query = query.filter(AuditResult.content_id == content_id)
     results = query.limit(limit).all()
     
-    # Flatten or structure for frontend
     frontend_results = []
     for r in results:
         res_dict = {
@@ -182,13 +220,11 @@ async def get_usage_aggregation(db: Session = Depends(get_db)):
         func.sum(StreamingLog.plays).label("total_plays"),
         func.min(StreamingLog.timestamp).label("min_date"),
         func.max(StreamingLog.timestamp).label("max_date"),
-        # Get list of countries? SQLAlchemy doesn't do this easily in SQLite. 
-        # We'll just return the counts for now.
     ).group_by(StreamingLog.content_id).order_by(func.sum(StreamingLog.plays).desc()).all()
     
     return [{
         "content_id": r.content_id,
         "total_plays": r.total_plays,
         "date_range": {"min": r.min_date, "max": r.max_date},
-        "countries": [] # Will be lazy-loaded or fetched separately
+        "countries": [] 
     } for r in results]
